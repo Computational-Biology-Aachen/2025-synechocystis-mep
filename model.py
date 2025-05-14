@@ -777,7 +777,7 @@ def get_pigment_absorption(
 
 def _get_complex_absorption(
     *,
-    pfd: pd.Series | pd.DataFrame,
+    light: pd.Series | pd.DataFrame,
     ps_ratio: float,
     pigment_content: pd.Series,
     abs_coef: pd.DataFrame,
@@ -809,10 +809,10 @@ def _get_complex_absorption(
 
     M_chl = 893.509  # [g mol^-1] molar mass of chlorophyll a (C55H72MgN4O5)
 
-    if isinstance(pfd, pd.DataFrame):
-        pfd = pfd.squeeze(np.argmin(abs_coef.shape))  # type: ignore
+    if isinstance(light, pd.DataFrame):
+        light = light.squeeze(np.argmin(abs_coef.shape))  # type: ignore
 
-    abs_light = absorption.mul(pfd, axis=0)  # type: ignore
+    abs_light = absorption.mul(light, axis=0)  # type: ignore
     abs_pigment = abs_light.apply(_simpson, axis=0)  # type: ignore
 
     # With the association calculate the complexes light absorption
@@ -983,7 +983,7 @@ def _get_model_inputs(
 
 def _get_simulated_ssrates(
     *,
-    pfd: pd.Series,
+    light: pd.Series,
     model: Any,
     ocp_absorption: pd.DataFrame,
     ps_ratio: float,  # Value in the default model
@@ -995,7 +995,7 @@ def _get_simulated_ssrates(
 ) -> pd.Series:
     # Calculate the absorbed lights from the light input
     complex_abs = _get_complex_absorption(
-        pfd=pfd,
+        light=light,
         ps_ratio=ps_ratio,
         pigment_content=pigment_content,
         abs_coef=abs_coef,
@@ -1006,7 +1006,7 @@ def _get_simulated_ssrates(
 
     # Calculate the OCP absorbed light
     light_params["light_ocp"] = (
-        ocp_absorption.mul(pfd, axis=0).apply(simpson).to_numpy()  # type: ignore
+        ocp_absorption.mul(light, axis=0).apply(simpson).to_numpy()  # type: ignore
     )
 
     # get the input parameters for the model
@@ -1077,7 +1077,7 @@ def get_influx_rate_estimations(
             )
             rates.append(
                 _get_simulated_ssrates(
-                    pfd=cast(pd.Series, pred_input["pfd"]),
+                    light=cast(pd.Series, pred_input["pfd"]),
                     pigment_content=cast(pd.Series, pred_input["pigment_content"]),
                     ps_ratio=ps_ratio,  # Value in the default model
                     model=biomass_regression_model,
@@ -1112,7 +1112,7 @@ def get_influx_rate_estimations(
     )
     # Predict the simulated rates
     rates = _get_simulated_ssrates(
-        pfd=cast(pd.Series, pred_input["pfd"]),
+        light=cast(pd.Series, pred_input["pfd"]),
         pigment_content=cast(pd.Series, pred_input["pigment_content"]),
         ps_ratio=ps_ratio,  # Value in the default model
         model=biomass_regression_model,

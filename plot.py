@@ -1,10 +1,12 @@
 import itertools as it
 import math
+from pathlib import Path
 from typing import Literal
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from matplotlib.figure import Figure
 
 
 def _fig_ax_if_neccessary(
@@ -155,3 +157,7 @@ def plot_autogrid(
         row_height=row_height,
         grid=grid,
     )
+
+
+def savefig(fig: Figure, name: str) -> None:
+    fig.savefig(Path("out") / name, bbox_inches="tight", dpi=300)
