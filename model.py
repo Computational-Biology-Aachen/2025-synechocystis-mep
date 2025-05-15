@@ -777,7 +777,7 @@ def get_pigment_absorption(
 
 def _get_complex_absorption(
     *,
-    light: pd.Series | pd.DataFrame,
+    corrected_light: pd.Series | pd.DataFrame,
     ps_ratio: float,
     pigment_content: pd.Series,
     abs_coef: pd.DataFrame,
@@ -809,10 +809,10 @@ def _get_complex_absorption(
 
     M_chl = 893.509  # [g mol^-1] molar mass of chlorophyll a (C55H72MgN4O5)
 
-    if isinstance(light, pd.DataFrame):
-        light = light.squeeze(np.argmin(abs_coef.shape))  # type: ignore
+    if isinstance(corrected_light, pd.DataFrame):
+        corrected_light = corrected_light.squeeze(np.argmin(abs_coef.shape))  # type: ignore
 
-    abs_light = absorption.mul(light, axis=0)  # type: ignore
+    abs_light = absorption.mul(corrected_light, axis=0)  # type: ignore
     abs_pigment = abs_light.apply(_simpson, axis=0)  # type: ignore
 
     # With the association calculate the complexes light absorption
@@ -983,7 +983,7 @@ def _get_model_inputs(
 
 def _get_simulated_ssrates(
     *,
-    light: pd.Series,
+    corrected_light: pd.Series,
     model: Any,
     ocp_absorption: pd.DataFrame,
     ps_ratio: float,  # Value in the default model
@@ -995,7 +995,7 @@ def _get_simulated_ssrates(
 ) -> pd.Series:
     # Calculate the absorbed lights from the light input
     complex_abs = _get_complex_absorption(
-        light=light,
+        corrected_light=corrected_light,
         ps_ratio=ps_ratio,
         pigment_content=pigment_content,
         abs_coef=abs_coef,
@@ -1006,7 +1006,7 @@ def _get_simulated_ssrates(
 
     # Calculate the OCP absorbed light
     light_params["light_ocp"] = (
-        ocp_absorption.mul(light, axis=0).apply(simpson).to_numpy()  # type: ignore
+        ocp_absorption.mul(corrected_light, axis=0).apply(simpson).to_numpy()  # type: ignore
     )
 
     # get the input parameters for the model
@@ -1077,7 +1077,7 @@ def get_influx_rate_estimations(
             )
             rates.append(
                 _get_simulated_ssrates(
-                    light=cast(pd.Series, pred_input["pfd"]),
+                    corrected_light=cast(pd.Series, pred_input["pfd"]),
                     pigment_content=cast(pd.Series, pred_input["pigment_content"]),
                     ps_ratio=ps_ratio,  # Value in the default model
                     model=biomass_regression_model,
@@ -1112,7 +1112,7 @@ def get_influx_rate_estimations(
     )
     # Predict the simulated rates
     rates = _get_simulated_ssrates(
-        light=cast(pd.Series, pred_input["pfd"]),
+        corrected_light=cast(pd.Series, pred_input["pfd"]),
         pigment_content=cast(pd.Series, pred_input["pigment_content"]),
         ps_ratio=ps_ratio,  # Value in the default model
         model=biomass_regression_model,
@@ -1127,7 +1127,6 @@ def get_influx_rate_estimations(
 
 
 def get_model(
-    mode: Literal["blast", "AI"],
     growth_mode: Literal["dynamic", "steady"],
     strain: Literal["wt", "dshc"],
     enzyme_total_cost_mol: pd.DataFrame,
@@ -1142,31 +1141,7 @@ def get_model(
     ps_comp: pd.DataFrame,
     ps_ratio: float = 5.9,
 ) -> Model:
-    state_variables = {
-        "light": 100.0,
-        "ATP_out_metabolism": 0.5,
-        "3PGA_out_metabolism": 0.5,
-        "NADPH_out_metabolism": 0.5,
-        "Fdred_out_metabolism": 0.5,
-        "Kna_DXS": 0.000004,
-        "DXS_na_kdeg": 1 / 50000,
-        "DXS_inh_str": 0.1,
-        "ps_ratio": ps_ratio,
-        "beta_carotene_fraction": 0.26,
-        "sample_depth_m": 0.01,
-        "cell_volume": cell_volume,
-        "NADPHsink_kfwd": 0.1,
-        "NADPHsink_krev": 0.1,
-        "Fdredsink_kfwd": 0.1,
-        "Fdredsink_krev": 0.1,
-        "phycocyanin": 53180
-        * 2e-15
-        / cell_volume,  # mg/L intracellular, adjusted from default cell volume to currently used cell volume
-        "allophycocyanin": 24076
-        * 2e-15
-        / cell_volume,  # mg/L intracellular, adjusted from default cell volume to currently used cell volume
-    }
-    Enzyme_names: list[str] = [
+    enzyme_names: list[str] = [
         "DXS",
         "ThiG",
         "DXR",
@@ -1248,7 +1223,6 @@ def get_model(
         enzyme_synthesis_rates[d + "_synth_KmB"] = 1
         enzyme_synthesis_rates[d + "_synth_KmC"] = 1
         enzyme_synthesis_rates[d + "_synth_KmD"] = 1
-
         enzyme_synthesis_rates[d + "_synth_h"] = 1
 
     all_compounds = m.compounds.copy()
@@ -1257,7 +1231,7 @@ def get_model(
 
     possible_params = ["Km", "Ki", "Kd"]
     existing_params = {}
-    for enzyme in Enzyme_names:
+    for enzyme in enzyme_names:
         existing_params[enzyme + "Kcat"] = enzyme_parameters[enzyme + "Kcat"]
         existing_params[enzyme + "_Keq"] = enzyme_parameters[enzyme + "_Keq"]
         existing_params[enzyme + "_h"] = 1
@@ -1269,9 +1243,35 @@ def get_model(
                     ]
                 except:  # noqa: E722
                     pass
-    m.add_and_update_parameters(state_variables)
+    m.add_and_update_parameters(
+        {
+            "light": 100.0,
+            "ATP_out_metabolism": 0.5,
+            "3PGA_out_metabolism": 0.5,
+            "NADPH_out_metabolism": 0.5,
+            "Fdred_out_metabolism": 0.5,
+            "Kna_DXS": 0.000004,
+            "DXS_na_kdeg": 1 / 50000,
+            "DXS_inh_str": 0.1,
+            "ps_ratio": ps_ratio,
+            "beta_carotene_fraction": 0.26,
+            "sample_depth_m": 0.01,
+            "cell_volume": cell_volume,
+            "NADPHsink_kfwd": 0.1,
+            "NADPHsink_krev": 0.1,
+            "Fdredsink_kfwd": 0.1,
+            "Fdredsink_krev": 0.1,
+            "phycocyanin": 53180
+            * 2e-15
+            / cell_volume,  # mg/L intracellular, adjusted from default cell volume to currently used cell volume
+            "allophycocyanin": 24076
+            * 2e-15
+            / cell_volume,  # mg/L intracellular, adjusted from default cell volume to currently used cell volume
+        }
+    )
     m.add_and_update_parameters(existing_params)
     m.add_and_update_parameters(enzyme_synthesis_rates)
+
     m.add_derived_compound(
         "Chla_synthesis",
         chl_synthesis_rate,
@@ -1303,24 +1303,21 @@ def get_model(
         args=["Chla_synthesis", "cell_volume"],
     )
 
+    m.add_compound("Cell_density")
     if growth_mode == "dynamic":
-        m.add_compound("Cell_density")
         m.add_reaction_from_args(
             "Cell_density_increase",
             rf.mass_action_1,
-            {"Cell_density": 1},
-            ["Cell_density", "Growth_rate"],
+            stoichiometry={"Cell_density": 1},
+            args=["Cell_density", "Growth_rate"],
         )
-
-    elif growth_mode == "steady":
-        m.add_compound("Cell_density")
 
     for compound in sorted(set(m.compounds) ^ {"Cell_density"}):
         m.add_reaction_from_args(
             str(compound) + "_out",
             rf.mass_action_1,
-            {compound: -1},
-            [compound, "Growth_rate"],
+            stoichiometry={compound: -1},
+            args=[compound, "Growth_rate"],
         )
 
     m.add_reaction_from_args(
@@ -1462,8 +1459,6 @@ def get_model(
             "DXS_inh_str",
         ],
     )
-
-    # def universal_hill_4_1(A, B,C,D, P,vmax, KmA, KmB, KmC, KmD, KmP, Keq, h):
 
     m.add_reaction_from_args(
         "DXS_monomerization",
