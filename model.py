@@ -1,3 +1,16 @@
+"""
+
+FIXME
+- In the calculation of simulated ss-rates you create derived variables (e.g. pfd, pigment content)
+  as a series, which is hidden from the user. Why? Define them as derived variables
+- light_spectra hard-codes warm_white_led. Then why not pass the warm_white_led directly from the beginning?
+  You don't need to pass the entirety of lights if you just use one
+- There are tons of unused parameters. Remove them
+- You calculate get_pigment_absorption twice, once in _get_complex_absorption and once in _get_model_inputs. Why?
+- You use pd.concat to create a multi-index df in get_pigment_absorption, but then immediately sum / multiply over
+  given axes, removing the point of that multi-index. Why?
+"""
+
 from __future__ import annotations
 
 from functools import partial
@@ -11,7 +24,6 @@ import pandas as pd
 from modelbase.ode import Model
 from modelbase.ode import ratefunctions as rf
 from scipy.integrate import simpson
-from scipy.integrate import simpson as _simpson
 from sklearn.pipeline import Pipeline
 
 from kinetics import (
@@ -65,10 +77,6 @@ parameters = {  # Module parameters
     "kF": 6.250e08,  # [s^-1] rate constant of excitation quenching by fluorescence (Ebenhoh2014)
     "k2": 2.500e09,  # [s^-1] rate constant of excitation quenching by photochemistry (Ebenhoh2014,Bernat2009)
     "kPQred": 250.000,  # [mol(Chl) mmol^-1 s^-1] rate constant of PQ reduction via PS2 (Matuszynska2019)
-    # 'kQuench': 2.500e-05, # [mol(Chl) mmol^-1 s^-1] rate constant of PS2 quenching by Q_red (manually fitted)
-    # 'kUnquench': 1.250e-03, # [mol(Chl) mmol^-1 s^-1] rate constant of PS2 unquenching by Q_ox (manually fitted)
-    # 'kATPconsumption': 0.300, # [s^-1] rate constant of ATP consumption by processes other than the CBB (guess)
-    # 'kNADHconsumption': 10.000, # [s^-1] rate constant of NADH consumption by processes other than NDH (guess)
     "kFlvactivation": 0.500,  # [s^-1] rate constant of Flv activation by reduced Fd (manually fitted)
     "kFlvdeactivation": 0.100,  # [s^-1] rate constant of Flv deactivation by oxidised Fd (manually fitted)
     # 'kCBBactivation': 5.000e-02, # [s^-1] rate constant of CBB activation by reduced Fd (manually fitted)
@@ -89,7 +97,6 @@ parameters = {  # Module parameters
     "kRespiration": 3.506e-06,  # [mol(Chl)^3 mmol^-3 s^-1] rate constant of 3PGA oxidation and fumarate reduction by glycolysis and the TCA cycle (Ermakova2016)
     "kO2out": 4.025e03,  # [s^-1] rate constant of oxygen diffusion out of the cell (Kihara2014)
     "kCCM": 4.025e03,  # [s^-1] rate constant of CO2 diffusion into the cell, assumed to be identical to kO2out (guess)
-    # 'fluo_influence': {'PS2': 1.000, 'PS1': 1.000, 'PBS': 1.250}, # [unitless] factors multiplied to the calculated fluorescence (no effect at 1) (manually fitted)
     "PBS_free": 9.000e-02,  # [unitless] fraction of unbound PBS (Zavrel2023)
     "PBS_PS1": 0.390,  # [unitless] fraction of PBS bound to PSI (Zavrel2023)
     "PBS_PS2": 0.510,  # [unitless] fraction of PBS bound to PSII (Zavrel2023)
@@ -113,11 +120,6 @@ parameters = {  # Module parameters
     "k_Q": 1789.6877149900638,
     "k_pass": 0.0103757688087645,
     "k_aa": 1.0726342220286855,
-    "fluo_influence": {
-        "PS2": 1.0871604554468057,
-        "PS1": 1.0580747331180056,
-        "PBS": 1.2652931291892002,
-    },
     "lcf": 0.4852970468572075,
     "KMPGA": 0.108119035344566,
     "kATPsynth": 10.508685365751944,
@@ -142,21 +144,6 @@ parameters = {  # Module parameters
 def _ensure_single_value(value: npt.NDArray | float) -> float:
     """Extract the last item if value is a list or tuple, otherwise return the value itself."""
     return value[0] if isinstance(value, np.ndarray) else value
-
-
-def get_pigment_content() -> pd.Series:
-    """[mg(Pigment) mg(Chla)^-1]
-    relative pigment concentrations in a synechocystis cell (Zavrel2023)
-    """
-    return pd.Series(
-        {
-            "chla": 1.000,
-            "beta_carotene": 0.176,
-            "allophycocyanin": 1.118,
-            "phycocyanin": 6.765,
-        },
-        dtype=float,
-    )
 
 
 def get_enzyme_costs(
@@ -526,9 +513,15 @@ def get_enzyme_parameters(
         "chlorophyll-GGPP",
         "chlorophyll-phytol",
     ]
-    default_values = {"eq": 10**10, "Km": 100, "at": 600, "Ki": 1000, "Kd": 1}
+
+    default_values = {
+        "eq": 10**10,  # FIXME: justify why you choose these values
+        "Km": 100,  # FIXME: justify why you choose these values
+        "at": 600,  # FIXME: justify why you choose these values
+        "Ki": 1000,  # FIXME: justify why you choose these values
+        "Kd": 1,  # FIXME: justify why you choose these values
+    }
     for name in Enzyme_names:
-        # substrates = pd.unique(enzyme_parameters[enzyme_parameters["Enzyme"] == name]["Substrate"])
         for subs in substrates:
             tempdict = {}
             if mode == "AI":
@@ -612,7 +605,8 @@ def unit_conversion(value: float, cell_volume: float) -> float:
     [mmol mol(chl)^-1 s^-1]*[mol(chl)]/[L] = mM s^-1 -> µM min⁻1
     Chlorophyll [µM intracellular] -> M intracellular -> mol
     """
-
+    # FIXME: why aren't these model parameters?
+    # FIXME: where do the numbers come from??
     return (
         value * ((7.5 / 893.509 / (105482164.18012363 * 1000) / cell_volume) * 1e-3)
     ) * 60
@@ -664,7 +658,6 @@ def calculate_min_kcats(
         carot * 1000 / cell_volume / doubling_time / enzyme_concentrations_umol["CrtB"]
     )
     kcat_values["IdiKcat"] = 138  # From literature
-    # kcat_values["IspDKcat"] = 1000
     kcat_values["IspH1Kcat"] = kcat_values["IspHKcat"]
     kcat_values["IspH2Kcat"] = kcat_values["IspHKcat"]
 
@@ -807,13 +800,14 @@ def _get_complex_absorption(
         verbose=False,
     )
 
+    # FIXME: why isn't this a parameter??
     M_chl = 893.509  # [g mol^-1] molar mass of chlorophyll a (C55H72MgN4O5)
 
     if isinstance(corrected_light, pd.DataFrame):
         corrected_light = corrected_light.squeeze(np.argmin(abs_coef.shape))  # type: ignore
 
     abs_light = absorption.mul(corrected_light, axis=0)  # type: ignore
-    abs_pigment = abs_light.apply(_simpson, axis=0)  # type: ignore
+    abs_pigment = abs_light.apply(simpson, axis=0)  # type: ignore
 
     # With the association calculate the complexes light absorption
     abs_complex = association.dot(
@@ -821,7 +815,7 @@ def _get_complex_absorption(
     )
 
     # [µmol(Photons) mmol(Chl)^-1 s^-1]
-    return abs_complex.squeeze(1) * M_chl
+    return abs_complex.squeeze(1) * M_chl  # type: ignore
 
 
 def get_mean_sample_light(
@@ -912,6 +906,8 @@ def _get_model_inputs(
 ):
     # Calculate the chlorophyll content
 
+    # FIXME: why aren't these parameters
+    # FIXME: and why is it a dict??
     molar_weights = {  # [g mol^-1]
         "chlorophyll": 893.509,  # source: https://www.ebi.ac.uk/chebi/searchId.do?chebiId=CHEBI:189419
         "carotenoids": 536.8726,  # molar weight beta carotene, source: https://webbook.nist.gov/cgi/cbook.cgi?ID=C7235407
@@ -922,9 +918,11 @@ def _get_model_inputs(
     phycocyanin = _ensure_single_value(phycocyanin)
     allophycocyanin = _ensure_single_value(allophycocyanin)
     cell_density = _ensure_single_value(cell_density)
+
+    # FIXME: why isn't this a derived variable??
     mg_chlorophyll = chlorophyll * molar_weights["chlorophyll"] / 1000  # [mg l^-1]
 
-    # Calculate the relative contents of carotenoids, phycocyanin, and allophycocyanin
+    # FIXME: why aren't these variables??
     relative_carotenoids = (
         carotenoids * molar_weights["carotenoids"] / 1000
     ) / mg_chlorophyll  # [mg mg(Chla)^-1]
@@ -941,15 +939,15 @@ def _get_model_inputs(
         }
     )
 
+    # Get the total cellular absorption
+    absorption = get_pigment_absorption(pigments=pigment_content, abs_coef=abs_coef)
+    absorption = absorption.sum(axis=1)
+
     # Only beta carotene is photosynthetically active
     photopigment_content = pigment_content.copy()
     photopigment_content["beta_carotene"] = (
         photopigment_content["beta_carotene"] * beta_carotene_fraction
     )
-
-    # Get the total cellular absorption
-    absorption = get_pigment_absorption(pigments=pigment_content, abs_coef=abs_coef)
-    absorption = absorption.sum(axis=1)
 
     # Define the input light
     light = light_spectra(
@@ -974,6 +972,8 @@ def _get_model_inputs(
         absorption_coef=absorption,  # wavelength-specific absorption coefficients for whole cell, summed up from pigments
         chlorophyll_sample=chlorophyll_sample,  # [mg(Chl) m^-3]
     )
+
+    # FIXME: why aren't these derived variables??
     return {
         "orig_pfd": light,
         "absorption_spectrum": absorption,
@@ -1140,7 +1140,7 @@ def get_model(
     ocp_absorption: pd.DataFrame,
     molar_masses: pd.DataFrame,
     ps_comp: pd.DataFrame,
-    ps_ratio: float = 5.9,
+    ps_ratio: float = 5.9,  # FIXME: justify
 ) -> Model:
     enzyme_names: list[str] = [
         "DXS",
@@ -1217,14 +1217,13 @@ def get_model(
 
     enzyme_synthesis_rates = {}
     for i, (d, value) in enumerate(enzyme_concentrations_umol.items()):
-        enzyme_synthesis_rates[d + "_ksynth"] = (
-            value / (5.5 * 60) * 2
-        )  # Vmax = doubling of enzyme concentration every 5.5h at maximum growth rate
-        enzyme_synthesis_rates[d + "_synth_KmA"] = 1
-        enzyme_synthesis_rates[d + "_synth_KmB"] = 1
-        enzyme_synthesis_rates[d + "_synth_KmC"] = 1
-        enzyme_synthesis_rates[d + "_synth_KmD"] = 1
-        enzyme_synthesis_rates[d + "_synth_h"] = 1
+        # Vmax = doubling of enzyme concentration every 5.5h at maximum growth rate
+        enzyme_synthesis_rates[d + "_ksynth"] = value / (5.5 * 60) * 2
+        enzyme_synthesis_rates[d + "_synth_KmA"] = 1  # FIXME: justify
+        enzyme_synthesis_rates[d + "_synth_KmB"] = 1  # FIXME: justify
+        enzyme_synthesis_rates[d + "_synth_KmC"] = 1  # FIXME: justify
+        enzyme_synthesis_rates[d + "_synth_KmD"] = 1  # FIXME: justify
+        enzyme_synthesis_rates[d + "_synth_h"] = 1  # FIXME: justify
 
     all_compounds = m.compounds.copy()
     all_compounds.append("G3P")
@@ -1235,7 +1234,7 @@ def get_model(
     for enzyme in enzyme_names:
         existing_params[enzyme + "Kcat"] = enzyme_parameters[enzyme + "Kcat"]
         existing_params[enzyme + "_Keq"] = enzyme_parameters[enzyme + "_Keq"]
-        existing_params[enzyme + "_h"] = 1
+        existing_params[enzyme + "_h"] = 1  # FIXME: justify
         for substrates in all_compounds:
             for p in possible_params:
                 try:
@@ -1247,21 +1246,21 @@ def get_model(
     m.add_and_update_parameters(
         {
             "light": 100.0,
-            "ATP_out_metabolism": 0.5,
-            "3PGA_out_metabolism": 0.5,
-            "NADPH_out_metabolism": 0.5,
-            "Fdred_out_metabolism": 0.5,
-            "Kna_DXS": 0.000004,
-            "DXS_na_kdeg": 1 / 50000,
-            "DXS_inh_str": 0.1,
+            "ATP_out_metabolism": 0.5,  # FIXME: justify
+            "3PGA_out_metabolism": 0.5,  # FIXME: justify
+            "NADPH_out_metabolism": 0.5,  # FIXME: justify
+            "Fdred_out_metabolism": 0.5,  # FIXME: justify
+            "Kna_DXS": 0.000004,  # FIXME: justify
+            "DXS_na_kdeg": 1 / 50000,  # FIXME: justify
+            "DXS_inh_str": 0.1,  # FIXME: justify
             "ps_ratio": ps_ratio,
-            "beta_carotene_fraction": 0.26,
-            "sample_depth_m": 0.01,
+            "beta_carotene_fraction": 0.26,  # FIXME: justify
+            "sample_depth_m": 0.01,  # FIXME: justify
             "cell_volume": cell_volume,
-            "NADPHsink_kfwd": 0.1,
-            "NADPHsink_krev": 0.1,
-            "Fdredsink_kfwd": 0.1,
-            "Fdredsink_krev": 0.1,
+            "NADPHsink_kfwd": 0.1,  # FIXME: justify
+            "NADPHsink_krev": 0.1,  # FIXME: justify
+            "Fdredsink_kfwd": 0.1,  # FIXME: justify
+            "Fdredsink_krev": 0.1,  # FIXME: justify
             "phycocyanin": 53180
             * 2e-15
             / cell_volume,  # mg/L intracellular, adjusted from default cell volume to currently used cell volume
@@ -1325,10 +1324,10 @@ def get_model(
         "Biomass",
         growth_function,
         stoichiometry={
-            "NADPH": -8.762903549999999 / 60,
-            "ATP": -33.0939284280016 / 60,
-            "Fdred": -25.97602870400234 / 60,
-            "3PGA": -78.47848943300428 / 60,
+            "NADPH": -8.762903549999999 / 60,  # FIXME: justify
+            "ATP": -33.0939284280016 / 60,  # FIXME: justify
+            "Fdred": -25.97602870400234 / 60,  # FIXME: justify
+            "3PGA": -78.47848943300428 / 60,  # FIXME: justify
         },
         args=["Chla_synthesis", "cell_volume"],
     )
@@ -1412,7 +1411,7 @@ def get_model(
     )
 
     o = enzyme_total_cost_mol.index.delete(0)
-    sf = 1e-4  # Scaling factor to prevent giant stoichiometries for enzymes
+    sf = 1e-4  # FIXME: justify this scaling factor to prevent giant stoichiometries for enzymes
     for enzyme in o:
         m.add_reaction_from_args(
             enzyme + "_synth",
