@@ -14,7 +14,6 @@ wheels/
 *.egg-info
 
 # data
-data/
 out/
 tmp/
 mxlpy/
