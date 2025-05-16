@@ -5,7 +5,7 @@ FIXME
   as a series, which is hidden from the user. Why? Define them as derived variables
 - light_spectra hard-codes warm_white_led. Then why not pass the warm_white_led directly from the beginning?
   You don't need to pass the entirety of lights if you just use one
-- There are tons of unused parameters. Remove them
+- There are unused parameters in `parameters`. Remove them
 - You calculate get_pigment_absorption twice, once in _get_complex_absorption and once in _get_model_inputs. Why?
 - You use pd.concat to create a multi-index df in get_pigment_absorption, but then immediately sum / multiply over
   given axes, removing the point of that multi-index. Why?
@@ -674,7 +674,7 @@ def get_pigment_association(
     *,
     ps1_ratio: float,
     ps_comp: pd.DataFrame,
-    molar_masses: pd.DataFrame,
+    molar_masses: pd.Series,
     beta_carotene_method: str = "original",
     pigments: pd.Series | None = None,
     verbose: bool = True,
@@ -774,7 +774,7 @@ def _get_complex_absorption(
     ps_ratio: float,
     pigment_content: pd.Series,
     abs_coef: pd.DataFrame,
-    molar_masses: pd.DataFrame,
+    molar_masses: pd.Series,
     ps_comp: pd.DataFrame,
 ) -> pd.Series:
     """Get the absorption of each photosynthetic complex for a given input light
@@ -991,7 +991,7 @@ def _get_simulated_ssrates(
     pigment_content: pd.Series,
     output_rates: list[str],
     abs_coef: pd.DataFrame,
-    molar_masses: pd.DataFrame,
+    molar_masses: pd.Series,
     ps_comp: pd.DataFrame,
 ) -> pd.Series:
     # Calculate the absorbed lights from the light input
@@ -1043,7 +1043,7 @@ def get_influx_rate_estimations(
     cell_volume: float,  # [l]
     # partial arguments
     ocp_absorption: pd.DataFrame,
-    molar_masses: pd.DataFrame,
+    molar_masses: pd.Series,
     ps_comp: pd.DataFrame,
     biomass_regression_model: Pipeline,  # The predictor model
     abs_coef: pd.DataFrame,
@@ -1138,7 +1138,7 @@ def get_model(
     abs_coef: pd.DataFrame,
     lights: pd.DataFrame,
     ocp_absorption: pd.DataFrame,
-    molar_masses: pd.DataFrame,
+    molar_masses: pd.Series,
     ps_comp: pd.DataFrame,
     ps_ratio: float = 5.9,  # FIXME: justify
 ) -> Model:
@@ -1435,6 +1435,7 @@ def get_model(
                 enzyme + "_synth_KmD",
             ],
         )
+
     m.add_reaction_from_args(
         "DXS_synth",
         DXS_synth_f,

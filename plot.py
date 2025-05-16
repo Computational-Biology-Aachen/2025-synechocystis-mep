@@ -160,4 +160,5 @@ def plot_autogrid(
 
 
 def savefig(fig: Figure, name: str) -> None:
-    fig.savefig(Path("out") / name, bbox_inches="tight", dpi=300)
+    (folder := Path("out")).mkdir(parents=True, exist_ok=True)
+    fig.savefig(folder / name, bbox_inches="tight", dpi=300)
