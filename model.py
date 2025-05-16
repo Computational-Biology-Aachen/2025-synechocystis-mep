@@ -846,9 +846,10 @@ def get_mean_sample_light(
     """
     # Calculate the adjustment for a single irradiace or a list of such
     if isinstance(I0, pd.Series):
-        I_diff = _irradiance_depth_int(
-            I0, depth, absorption_coef, chlorophyll_sample
-        ) - _irradiance_depth_int(I0, depth0, absorption_coef, chlorophyll_sample)
+        I_diff = (
+            _irradiance_depth_int(I0, depth, absorption_coef, chlorophyll_sample)  #
+            - _irradiance_depth_int(I0, depth0, absorption_coef, chlorophyll_sample)
+        )
         return I_diff / (depth - depth0)
 
     elif isinstance(I0, (list, np.ndarray)):
