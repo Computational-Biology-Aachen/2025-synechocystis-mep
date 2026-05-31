@@ -45,101 +45,6 @@ from kinetics import (
     v_sqs,
 )
 
-parameters = {  # Module parameters
-    "PSIItot": 0.830,  # [mmol mol(Chl)^-1] total concentration of photosystem II complexes (Zavrel2023)
-    "PSItot": 3.270,  # [mmol mol(Chl)^-1] total concentration of photosystem I complexes (Zavrel2023)
-    "Q_tot": 13.000,  # [mmol mol(Chl)^-1] total PHOTOACTIVE PQ concentration (Khorobrykh2020)
-    "PC_tot": 1.571,  # [mmol mol(Chl)^-1] total concentration of plastocyanin (PC_ox + PC_red) (Zavrel2019)
-    "Fd_tot": 3.597,  # [mmol mol(Chl)^-1] total concentration of ferredoxin (Fd_ox + Fd_red) (Moal2012)
-    "NADP_tot": 26.805,  # [mmol mol(Chl)^-1] total concentration of NADP species (NADP + NADPH) (Kauny2014)
-    "NAD_tot": 11.169,  # [mmol mol(Chl)^-1] total concentration of NAD species (NAD + NADH) (Tanaka2021)
-    "AP_tot": 430.143,  # [mmol mol(Chl)^-1] total concentration of adenosine species (ADP + ATP) (Doello2018)
-    "O2ext": 55.402,  # [mmol mol(Chl)^-1] concentration of oxygen in the surrounding medium (Kihara2014)
-    "CO2ext": 3.103,  # [mmol mol(Chl)^-1] saturated concentration of CO2 in 25 °C water with ~10 ‰ Cl^- ions (Li1971)
-    "F": 96.485,  # [C mmol^-1] Faraday's constant (Richardson2019)
-    "R": 8.300e-03,  # [J K^-1 mmol^-1] ideal gas constant (Richardson2019)
-    "T": 298.150,  # [K] temperature (set)
-    "bHi": 100.000,  # [unitless] buffering constant of the thylakoid lumen (estimated)
-    "bHo": 1.111e03,  # [unitless] buffering constant of the cytoplasm, assumed to be 1/f_V_lumen times larger (estimated)
-    "cf_lumen": 4.613e-05,  # [mol(Chl) ml^-1] conversion factor for [mmol mol(Chl)^-1] -> [mol l^-1] for the thylakoid lumen (derived)
-    "cf_cytoplasm": 4.562e-06,  # [mol(Chl) ml^-1] conversion factor for [mmol mol(Chl)^-1] -> [mol l^-1] for the cytoplasm (derived)
-    # 'fCin': 100.000, # [unitless] ratio of intracellular to external CO2 concentration with activity of the CCM (Hagemann2021)
-    "E0_QA": -0.140,  # [V] standard electrode potential of the reduction of PS2 plastoquinone A (Lewis2022)
-    "E0_PQ": 0.533,  # [V] standard electrode potential of the reduction of free plastoquinone (Lewis2022)
-    "E0_PC": 0.350,  # [V] standard electrode potential of the reduction of free plastocyanin (Lewis2022)
-    "E0_P700": 0.410,  # [V] standard electrode potential of the reduction of the oxidised PS1 reaction center (Lewis2022)
-    "E0_FA": -0.580,  # [V] standard electrode potential of the reduction of PS1 iron-sulfur cluster A (Lewis2022)
-    "E0_Fd": -0.410,  # [V] standard electrode potential of the reduction of free ferredoxin (Lewis2022)
-    "E0_NADP": -0.113,  # [V] standard electrode potential of the reduction of NADP to NADPH (Falkowski2007)
-    "E0_succinate/fumarate": 0.443,  # [V] standard electrode potential of the reduction of fumarate to succinate (Falkowski2007)
-    "kH0": 5.000e08,  # [s^-1] rate constant of (unregulated) excitation quenching by heat (Ebenhoh2014)
-    "kHst": 1.000e09,  # [s^-1] rate constant of state transition regulated excitation quenching by heat (guess)
-    "kF": 6.250e08,  # [s^-1] rate constant of excitation quenching by fluorescence (Ebenhoh2014)
-    "k2": 2.500e09,  # [s^-1] rate constant of excitation quenching by photochemistry (Ebenhoh2014,Bernat2009)
-    "kPQred": 250.000,  # [mol(Chl) mmol^-1 s^-1] rate constant of PQ reduction via PS2 (Matuszynska2019)
-    "kFlvactivation": 0.500,  # [s^-1] rate constant of Flv activation by reduced Fd (manually fitted)
-    "kFlvdeactivation": 0.100,  # [s^-1] rate constant of Flv deactivation by oxidised Fd (manually fitted)
-    # 'kCBBactivation': 5.000e-02, # [s^-1] rate constant of CBB activation by reduced Fd (manually fitted)
-    "kCBBdeactivation": 2.500e-03,  # [s^-1] rate constant of CBB deactivation by oxidised Fd (manually fitted)
-    "kPCox": 2.500e03,  # [mol(Chl) mmol^-1 s^-1] rate constant of PC oxidation via PS1 (Matuszynska2019)
-    "kFdred": 2.500e05,  # [mol(Chl) mmol^-1 s^-1] rate constant of Fd reduction via PS1 (Matuszynska2019)
-    # 'k_F1': 1.000, # [s^-1] rate constant of excitation quenching via fluorescence (guess)
-    "k_ox1": 0.211,  # [mol(Chl)^2 mmol^-2 s^-1] rate constant of oxygen reduction via bd-type (Cyd) terminal oxidases (Ermakova2016)
-    # 'k_Q': 1.755e+03, # [mol(Chl) mmol^-1 s^-1] rate constant of PC reduction by the cytochrome b6f complex (Setif2020)
-    "k_NDH": 3.136,  # [mol(Chl) mmol^-1 s^-1] rate constant of PQ reduction by NDH-2 (Cooley2001)
-    "k_SDH": 0.430,  # [mol(Chl) mmol^-1 s^-1] rate constant of PQ reduction by SDH (Cooley2001)
-    "k_O2": 35.935,  # [mol(Chl)^2 mmol^-2 s^-1] rate constant of Fd oxidation by Flv 1/3 (Ermakova2016)
-    "k_FN_fwd": 3.730,  # [mol(Chl) mmol^-1 s^-1] rate constant of NADP reduction by FNR (Kauny2014)
-    "k_FN_rev": 53.364,  # [mol(Chl)^3 mmol^-3 s^-1] rate constant of reverse flux through FNR in darkness (Kauny2014)
-    # 'k_pass': 1.000e-02, # [mmol mol(Chl)^-1 s^-1] rate constant of protons leaking across the thylakoid membrane per delta pH (guess)
-    "k_NQ": 100.000,  # [mol(Chl) mmol^-1 s^-1] rate constant of PQ reduction by NDH (Theune2021)
-    # 'k_aa': 1.156, # [mol(Chl)^2 mmol^-2 s^-1] rate constant of oxygen reduction via aa3-type (COX) terminal oxidases (Ermakova2016)
-    "kRespiration": 3.506e-06,  # [mol(Chl)^3 mmol^-3 s^-1] rate constant of 3PGA oxidation and fumarate reduction by glycolysis and the TCA cycle (Ermakova2016)
-    "kO2out": 4.025e03,  # [s^-1] rate constant of oxygen diffusion out of the cell (Kihara2014)
-    "kCCM": 4.025e03,  # [s^-1] rate constant of CO2 diffusion into the cell, assumed to be identical to kO2out (guess)
-    "PBS_free": 9.000e-02,  # [unitless] fraction of unbound PBS (Zavrel2023)
-    "PBS_PS1": 0.390,  # [unitless] fraction of PBS bound to PSI (Zavrel2023)
-    "PBS_PS2": 0.510,  # [unitless] fraction of PBS bound to PSII (Zavrel2023)
-    # 'lcf': 0.500, # [excitations photons^-1] light conversion factor (manually fitted)
-    # 'kATPsynth': 10.000, # [s^-1] rate constant of ATP synthesis (fit to supply CBB)
-    "Pi_mol": 1.000e-02,  # [mmol mol(Chl)^-1] molar conccentration of phosphate (Matuszynska2019)
-    "DeltaG0_ATP": 30.600,  # [kJ mol^-1] energy of ATP formation (Matuszynska2019)
-    "HPR": 4.667,  # [unitless] number of protons (14) passing through the ATP synthase per ATP (3) synthesized (Pogoryelov2007)
-    "vOxy_max": 16.059,  # [mmol mol(Chl)^-1 s^-1] approximate Rubisco oxygenation rate (Savir2010)
-    "KMATP": 24.088,  # [mmol mol(Chl)^-1] order of magnitude of the michaelis constant for ATP consumption in the CBB cycle (Wadano1998,Tsukamoto2013)
-    "KMNADPH": 18.066,  # [mmol mol(Chl)^-1] approxiate michaelis constant for NADPH consumption in the CBB cycle (Koksharova1998)
-    "KMCO2": 72.264,  # [mmol mol(Chl)^-1] order of magnitude of the michaelis constant for CO2 consumption by cyanobacterial Rubisco (Savir2010)
-    "KIO2": 240.880,  # [mmol mol(Chl)^-1] order of magnitude of the michaelis inhibition constant of O2 for CO2 consumption by cyanobacterial Rubisco, assumed equal to KMO2 (Savir2010)
-    "KMO2": 240.880,  # [mmol mol(Chl)^-1] order of magnitude of the michaelis constant for O2 consumption by cyanobacterial Rubisco (Savir2010)
-    "KICO2": 72.264,  # [mmol l^-1] order of magnitude of the michaelis inhibition constant of CO2 for O2 consumption by cyanobacterial Rubisco, assumed equal to KMCO2 (Savir2010)
-    # 'KMPGA': 0.100, # [mmol mol(Chl)^-1] arbitrary michaelis constant limiting oxygenation reactions for low 3PGA (guess)
-    "vCBB_max": 51.301,  # [mmol mol(Chl)^-1 s^-1] approximate maximal rate of the Calvin Benson Bassham cycle (Zavrel2017)
-    "kPR": 1.523e-06,  # [mol(Chl)^4 mmol^-4 s^-1] rate constant of (2-phospho)glycolate recycling into 3PGA (Huege2011)
-    "fCin": 1032.3825198828176,
-    "k_F1": 1.0144691550897802,
-    "k_Q": 1789.6877149900638,
-    "k_pass": 0.0103757688087645,
-    "k_aa": 1.0726342220286855,
-    "lcf": 0.4852970468572075,
-    "KMPGA": 0.108119035344566,
-    "kATPsynth": 10.508685365751944,
-    "kATPconsumption": 0.3007216562727887,
-    "kNADHconsumption": 10.774127129643528,
-    "kUnquench": 0.1084895168082126,
-    "KMUnquench": 0.2057753667172297,
-    "kQuench": 0.0021298894016293,
-    "KHillFdred": 39.138885950985646,
-    "nHillFdred": 3.803733201004677,
-    "kCBBactivation": 0.0368469911771887,
-    "KMFdred": 0.2867372651572032,
-    "kOCPactivation": 9.119349718302952e-05,
-    "kOCPdeactivation": 0.0013779872861697,
-    "OCPmax": 0.2894610142573665,
-    "vNQ_max": 47.52413111835536,
-    "KMNQ_Qox": 1.225188500783819,
-    "KMNQ_Fdred": 1.3324893590389415,
-}
-
 
 def _ensure_single_value(value: npt.NDArray | float) -> float:
     """Extract the last item if value is a list or tuple, otherwise return the value itself."""
@@ -890,7 +795,7 @@ def light_spectra(
         raise KeyError(f"'{e}' is not a provided spectrum")
 
 
-def _get_model_inputs(
+def _get_surrogate_model_inputs(
     *,
     cell_density: float,  # [cells ml^-1]
     chlorophyll: float,  # [µmol l^-1]
@@ -940,8 +845,10 @@ def _get_model_inputs(
     )
 
     # Get the total cellular absorption
-    absorption = get_pigment_absorption(pigments=pigment_content, abs_coef=abs_coef)
-    absorption = absorption.sum(axis=1)
+    absorption_spectrum = get_pigment_absorption(
+        pigments=pigment_content, abs_coef=abs_coef
+    )
+    absorption_spectrum = absorption_spectrum.sum(axis=1)
 
     # Only beta carotene is photosynthetically active
     photopigment_content = pigment_content.copy()
@@ -969,20 +876,20 @@ def _get_model_inputs(
     corrected_light = get_mean_sample_light(
         I0=light,
         depth=sample_depth_m,  # [m]
-        absorption_coef=absorption,  # wavelength-specific absorption coefficients for whole cell, summed up from pigments
+        absorption_coef=absorption_spectrum,  # wavelength-specific absorption coefficients for whole cell, summed up from pigments
         chlorophyll_sample=chlorophyll_sample,  # [mg(Chl) m^-3]
     )
 
     # FIXME: why aren't these derived variables??
     return {
         "orig_pfd": light,
-        "absorption_spectrum": absorption,
+        "absorption_spectrum": absorption_spectrum,
         "pfd": corrected_light,
         "pigment_content": photopigment_content,
     }
 
 
-def _get_simulated_ssrates(
+def _surrogate_prediction(
     *,
     corrected_light: pd.Series,
     model: Any,
@@ -1054,7 +961,7 @@ def get_influx_rate_estimations(
     if len(chlorophyll) > 1:  # type: ignore
         rates = []
         for i, v in enumerate(chlorophyll):  # type: ignore
-            pred_input = _get_model_inputs(
+            pred_input = _get_surrogate_model_inputs(
                 cell_density=cast(
                     float,
                     np.array([cell_density[i] * 1e6]),  # type: ignore
@@ -1077,7 +984,7 @@ def get_influx_rate_estimations(
                 lights=lights,
             )
             rates.append(
-                _get_simulated_ssrates(
+                _surrogate_prediction(
                     corrected_light=cast(pd.Series, pred_input["pfd"]),
                     pigment_content=cast(pd.Series, pred_input["pigment_content"]),
                     ps_ratio=ps_ratio,  # Value in the default model
@@ -1098,7 +1005,7 @@ def get_influx_rate_estimations(
         return rows
 
     # Get the inputs into the predictor function
-    pred_input = _get_model_inputs(
+    pred_input = _get_surrogate_model_inputs(
         cell_density=cell_density * 1e6,  # [cells ml^-1]
         chlorophyll=chlorophyll[0] * 1000,  # type: ignore , [µmol l^-1]
         carotenoids=carotenoids[0] * 1000,  # type: ignore , [µmol l^-1]
@@ -1112,7 +1019,7 @@ def get_influx_rate_estimations(
         lights=lights,
     )
     # Predict the simulated rates
-    rates = _get_simulated_ssrates(
+    rates = _surrogate_prediction(
         corrected_light=cast(pd.Series, pred_input["pfd"]),
         pigment_content=cast(pd.Series, pred_input["pigment_content"]),
         ps_ratio=ps_ratio,  # Value in the default model
