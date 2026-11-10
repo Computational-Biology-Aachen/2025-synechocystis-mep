@@ -245,7 +245,16 @@ def get_model(
     rxn(
         "DXS_monomerization",
         k.DXS_na,
-        ["DXS", "Kna_DXS", "IPP", "DMAPP", "DXSIPPKi", "DXSDMAPPKi"],
+        [
+            "DXS",
+            "Kna_DXS",
+            "IPP",
+            "DMAPP",
+            "DXSIPPKi",
+            "DXSDMAPPKi",
+            "ThiDP",
+            "DXSThiDPKd",
+        ],
         {"DXS": -1, "DXS_nonactive": 1},
     )
     rxn(

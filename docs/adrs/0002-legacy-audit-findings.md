@@ -108,4 +108,18 @@ Runtime: one RHS call costs ≈ 10 ms (sklearn + pandas + Simpson); one steady s
 
 ## 5. Fix log (v1)
 
-_Filled in during stage 2._
+Metrics from `scripts/v1_impact.py` (dshc): **ss** = steady state at light 100 and the
+density of data row 24; **Fig 9** = pre-culture steady state at row 24, diluted to the
+first data point, 80 µE, 13.5 mm, 96 h, RMSE vs. `growth_rates_by_density.csv`.
+
+| Step | ss μ [h^-1] | ss Chl [mM] | ss SQ [mM] | Fig 9 RMSE μ [h^-1] | Fig 9 RMSE ln N |
+| ---- | ----------- | ----------- | ---------- | ------------------- | --------------- |
+| v0 (baseline) | 0.0462 | 12.64 | 0.403 | 0.0053 | 0.135 |
+| B4 DXS monomerisation | 0.0317 | 12.64 | 0.299 | 0.0059 | 0.094 |
+
+- **B4** — `DXS_na` now follows the paper: k_na (E_t − E_a), E_a = free (no IPP/DMAPP)
+  *and* ThiDP-bound DXS, in consistent units. A unit-only fix (E_t − 1000·E_f) made
+  `DXS_nonactive` vanish (IPP Ki default 1000 mM, B6), which switched off DXS synthesis
+  through `DXS_synth_f` (synthesis ∝ DXS_nonactive / (DXS_nonactive + DXS_inh_str)) and
+  growth collapsed. That synthesis activation by the monomer isn't described in the
+  paper; it is kept as is (open question).

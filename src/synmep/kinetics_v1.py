@@ -54,11 +54,15 @@ def v_dxs(
     return numerator / denominator
 
 
-def DXS_na(
-    DXS, KnaDXS, IPP, DMAPP, KdIPP, KdDMAPP
-):  # Amount of non-active, non-bound DXS enzyme, targeted for degradation
-    DXS_f = DXS_free(DXS, IPP, DMAPP, KdIPP, KdDMAPP)
-    return KnaDXS * (DXS - DXS_f)
+def DXS_na(DXS, KnaDXS, IPP, DMAPP, KdIPP, KdDMAPP, ThiDP, KdThiDP):
+    """Monomerisation of non-active DXS: k_na (E_t - E_a) (paper Methods).
+
+    B4 (ADR 0002): the legacy code used E_t - E_f with E_f already divided by 1000
+    (µM - mM), so practically all DXS was monomerised regardless of IPP/DMAPP. E_a is
+    the active enzyme (free of IPP/DMAPP and ThiDP-bound), converted back to µM.
+    """
+    DXS_a = DXS_active(DXS_free(DXS, IPP, DMAPP, KdIPP, KdDMAPP), ThiDP, KdThiDP)
+    return KnaDXS * (DXS - DXS_a * 1000)
 
 
 def universal_hill_2_1(A, B, P, kcat, Et, KmA, KmB, KmP, Keq, h):
