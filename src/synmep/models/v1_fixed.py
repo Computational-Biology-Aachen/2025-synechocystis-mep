@@ -7,19 +7,23 @@ names across compounds, parameters and reactions (e.g. `DXS`, `3PGA_out_metaboli
 
 from __future__ import annotations
 
+import json
 from typing import Literal
 
+import sympy as sp
 from mxlpy import Model
 
 from synmep import kinetics_v1 as k
-from synmep.data import CAROT, CHLA, SQUALENE, LegacyInputs
+from synmep.data import CAROT, CHLA, DATA, SQUALENE, LegacyInputs
 from synmep.data_v1 import CELL_VOLUME, load_inputs
 from synmep.exprfn import clip_zero, expr_fn
-from synmep.surrogates.petc_legacy import Symbols, petc_expressions
+from synmep.surrogates.petc_legacy import Symbols, light_expressions
+from synmep.surrogates.poly import expressions as poly_expressions
 
 __all__ = ["get_model", "load_inputs"]
 
 UM_TO_MM = 1e-3
+PETC_POLY = DATA / "surrogates" / "petc_poly.json"
 # enzyme made per unit of synthesis rate; the legacy stoichiometry was sf * 1000 µM =
 # 0.1 µM per µM min^-1 of `ksynth`-limited rate, and cofactors 1e-4 x cost [mM], i.e.
 # 0.1 x cost per mM of enzyme rate (same behaviour, now in mM)
@@ -82,6 +86,9 @@ def legacy_parameters(
         # legacy per-cell amounts (53180 / 24076 mg L^-1 at 2 fL, unsourced)
         "phycocyanin": 53180 * 2e-15 / CELL_VOLUME,  # [mg L^-1]
         "allophycocyanin": 24076 * 2e-15 / CELL_VOLUME,  # [mg L^-1]
+        # PETC supply ratios (paper Tab. biomass_stoichiometry): NADPH, Fd per 3PGA
+        "r_NADPH_PGA": 2.924 / 6.934,
+        "r_Fd_PGA": 2.300 / 6.934,
         # empirical growth law slope per cell (legacy constant, paper Results)
         "chl_growth_slope": 39566524308958.01,  # [cells mmol(Chl)^-1]
     }
@@ -203,8 +210,8 @@ def get_model(
         },
     )
 
-    # PETC surrogate incl. self-shading, as explicit expressions (no model data)
-    petc = petc_expressions(
+    # self-shading light model -> absorbed light per complex (explicit expressions)
+    petc = light_expressions(
         inp,
         Symbols(
             chl=S("chlorophyll-phytol"),
@@ -219,11 +226,32 @@ def get_model(
             cell_volume="cell_volume",
         ),
     )
+    # B1: retrained pfennig2024 surrogate (ADR 0004), bounded outside its domain;
+    # outputs J_3PGA (net 3PGA production) and J_ATP [mmol mol(Chl)^-1 s^-1]
+    petc_poly = json.loads(PETC_POLY.read_text())
+    inputs = {
+        "absorption_ps1": "complex_abs_ps1",
+        "absorption_ps2": "complex_abs_ps2",
+        "absorption_pbs": "complex_abs_pbs",
+        "light_OCP": "light_ocp",
+    }
+    petc |= poly_expressions(
+        petc_poly, {i: sp.Symbol(inputs[i]) for i in petc_poly["inputs"]}
+    )
     for name, expr in petc.items():
         fn, args = expr_fn(expr, origin=S(name))
         m.add_derived(S(name), fn=fn, args=args)
+    # net respiration (J_3PGA < 0) isn't drawn from the 3PGA pool; NADPH and Fd supply
+    # follow 3PGA with the paper's biomass ratios (pfennig2024 has no NADPH/Fd demand)
+    m.add_derived(S("v3PGA_prod"), fn=clip_zero, args=[S("J_3PGA")])
+    m.add_derived(S("vATP_prod"), fn=clip_zero, args=["J_ATP"])
+    m.add_derived(
+        S("vNADPH_prod"), fn=k.proportional, args=[S("v3PGA_prod"), "r_NADPH_PGA"]
+    )
+    m.add_derived(
+        S("vFdred_prod"), fn=k.proportional, args=[S("v3PGA_prod"), "r_Fd_PGA"]
+    )
     for c in ("ATP", "NADPH", "3PGA", "Fdred"):
-        m.add_derived(S(f"v{c}_prod"), fn=clip_zero, args=[S(f"v{c}_prod_raw")])
         # B2: convert with the model's own Chl, not a fixed content
         rxn(
             f"{c} production",

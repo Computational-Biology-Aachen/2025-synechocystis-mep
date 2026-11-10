@@ -123,6 +123,7 @@ first data point, 80 µE, 13.5 mm, 96 h, RMSE vs. `growth_rates_by_density.csv`.
 | units mM/min, B8 | 0.0184 | 12.64 | 0.212 | 0.0219 | 1.314 |
 | B9 cell volume 4 fL | 0.0114 | 6.32 | 0.103 | 0.0151 | 0.847 |
 | B2 supply with dynamic Chl | 0.0046 | 6.32 | 0.049 | 0.0149 | 0.371 |
+| B1 retrained PETC surrogate | 0.0100 | 6.32 | 0.103 | 0.0126 | 0.336 |
 
 - **B4** — `DXS_na` now follows the paper: k_na (E_t − E_a), E_a = free (no IPP/DMAPP)
   *and* ThiDP-bound DXS, in consistent units. A unit-only fix (E_t − 1000·E_f) made
@@ -165,3 +166,9 @@ first data point, 80 µE, 13.5 mm, 96 h, RMSE vs. `growth_rates_by_density.csv`.
   fixed 7.5 mg OD^-1 L^-1 content (19.9 mM at 4 fL vs. Chl* 6.32 mM): supply ÷ 3.15 at
   steady state, and it now follows Chl changes (knock-down, acclimation). Cofactor pools
   become physiological (ss ATP 11.8 → 1.9 mM, 3PGA 21 → 3.4 mM).
+- **B1** — the legacy degree-5 surrogate (7 inputs, clipped at 0, extrapolating) is
+  replaced by the retrained pfennig2024 surrogate of ADR 0004 (4 absorbed-light inputs,
+  clamped to its training domain, outputs J_3PGA and J_ATP). NADPH and Fd supply follow
+  J_3PGA with the paper's biomass ratios (2.924 and 2.300 per 6.934 3PGA); net
+  respiration (J_3PGA < 0) isn't drawn from the 3PGA pool. ss growth ×2.2; Fig 9 final
+  density now overshoots (1.8e9 vs. 9.6e8 cells mL^-1).

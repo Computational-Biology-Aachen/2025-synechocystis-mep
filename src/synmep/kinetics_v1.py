@@ -23,6 +23,10 @@ def ping_pong_4(A, B, C, D, vmax, kmA, kmB, kmC, kmD):
     )
 
 
+def proportional(x, r):
+    return r * x
+
+
 def petc_supply(value, chl):
     """PETC rate [mmol mol(Chl)^-1 s^-1] x Chl [mM] -> [mM min^-1].
 
