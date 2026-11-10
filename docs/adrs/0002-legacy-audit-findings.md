@@ -118,6 +118,7 @@ first data point, 80 µE, 13.5 mm, 96 h, RMSE vs. `growth_rates_by_density.csv`.
 | B4 DXS monomerisation | 0.0317 | 12.64 | 0.299 | 0.0059 | 0.094 |
 | B5 Sqs mass-action ratio | 0.0317 | 12.64 | 0.299 | 0.0059 | 0.094 |
 | B7 ordered-mechanism 0/0 | 0.0317 | 12.64 | 0.299 | 0.0059 | 0.094 |
+| B6 default Km/Ki/Kd in µM | 0.0222 | 12.64 | 0.202 | 0.0286 | 1.635 |
 
 - **B4** — `DXS_na` now follows the paper: k_na (E_t − E_a), E_a = free (no IPP/DMAPP)
   *and* ThiDP-bound DXS, in consistent units. A unit-only fix (E_t − 1000·E_f) made
@@ -129,3 +130,13 @@ first data point, 80 µE, 13.5 mm, 96 h, RMSE vs. `growth_rates_by_density.csv`.
   no longer diverges as SQ → 0 (e.g. a fresh Δshc culture without squalene).
 - **B7** — `reversible_ordered_2_comp*` use (KmP + P(1 + A/KiA))/Keq instead of
   kcat·Et/(kcat·Et·Keq)·(...). Identical for Et > 0; defined for knock-outs (Et = 0).
+- **B6** — missing Km/Ki/Kd default to 100 µM / 1000 µM / 1 µM (`synmep.data_v1`),
+  instead of 100 mM / 1000 mM / 1 mM. 1191 of 1278 kinetic constants are defaults; 18 of
+  them are used by the model: DXS Ki(IPP, DMAPP, PYR), Kd(ThiDP); CrtE Ki(DMAPP, GPP,
+  FPP), Km(GGPP); ChlP Ki(GGPP, Chl-GGPP), Km(Chl-GGPP, Chl-phytol); ChlG Km(Chl-GGPP);
+  IspD Km(ATP); IspG Km(Fd); IspH2 Km(DMAPP, NADPH); ThiG Km(ThiDP). The largest effect
+  is product inhibition of Chl synthesis (Km(Chl-phytol) 100 → 0.1 mM vs. a 12.6 mM
+  pool) and stronger IPP/DMAPP feedback on DXS. Because growth follows Chl synthesis,
+  batch growth now overshoots after dilution (peak 0.12 h^-1, 6.8e9 cells mL^-1 at 96 h):
+  **the legacy parameter set was effectively tuned around the buggy defaults**; v1 needs
+  recalibration once all fixes are in.

@@ -13,8 +13,11 @@ from mxlpy import Model
 
 from synmep import kinetics_v1 as k
 from synmep.data import CAROT, CELL_VOLUME, CHLA, SQUALENE, LegacyInputs
+from synmep.data_v1 import load_inputs
 from synmep.exprfn import clip_zero, expr_fn
 from synmep.surrogates.petc_legacy import Symbols, petc_expressions
+
+__all__ = ["get_model", "load_inputs"]
 
 Strain = Literal["wt", "dshc"]
 GrowthMode = Literal["steady", "dynamic"]
