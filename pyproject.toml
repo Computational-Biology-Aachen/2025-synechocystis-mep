@@ -40,4 +40,6 @@ mxlmodels = { git = "https://github.com/Computational-Biology-Aachen/mxl-models"
 testpaths = ["tests"]
 
 [tool.ruff]
+# verbatim legacy code (only runs in the former pixi env), kept unformatted
+extend-exclude = ["scripts/legacy"]
 line-length = 88
