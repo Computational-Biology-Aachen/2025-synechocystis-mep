@@ -103,7 +103,7 @@ def v_sqs(
         / 1000
         * a
         * b
-        * (1 - (((A * B) / P) / Keq))
+        * (1 - ((P / (A * B)) / Keq))  # B5: was (A * B / P) / Keq (inverted)
         * (a + p) ** (h - 1)
         * b ** (h - 1)
     )

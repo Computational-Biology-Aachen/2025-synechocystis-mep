@@ -116,6 +116,7 @@ first data point, 80 µE, 13.5 mm, 96 h, RMSE vs. `growth_rates_by_density.csv`.
 | ---- | ----------- | ----------- | ---------- | ------------------- | --------------- |
 | v0 (baseline) | 0.0462 | 12.64 | 0.403 | 0.0053 | 0.135 |
 | B4 DXS monomerisation | 0.0317 | 12.64 | 0.299 | 0.0059 | 0.094 |
+| B5 Sqs mass-action ratio | 0.0317 | 12.64 | 0.299 | 0.0059 | 0.094 |
 
 - **B4** — `DXS_na` now follows the paper: k_na (E_t − E_a), E_a = free (no IPP/DMAPP)
   *and* ThiDP-bound DXS, in consistent units. A unit-only fix (E_t − 1000·E_f) made
@@ -123,3 +124,5 @@ first data point, 80 µE, 13.5 mm, 96 h, RMSE vs. `growth_rates_by_density.csv`.
   through `DXS_synth_f` (synthesis ∝ DXS_nonactive / (DXS_nonactive + DXS_inh_str)) and
   growth collapsed. That synthesis activation by the monomer isn't described in the
   paper; it is kept as is (open question).
+- **B5** — `v_sqs` uses P/(A·B)/Keq. No measurable change (Keq = 7.6e27), but the rate
+  no longer diverges as SQ → 0 (e.g. a fresh Δshc culture without squalene).
