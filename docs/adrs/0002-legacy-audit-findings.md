@@ -121,6 +121,7 @@ first data point, 80 µE, 13.5 mm, 96 h, RMSE vs. `growth_rates_by_density.csv`.
 | B6 default Km/Ki/Kd in µM | 0.0222 | 12.64 | 0.202 | 0.0286 | 1.635 |
 | B10 minimal kcats (ln2, 330 min) | 0.0184 | 12.64 | 0.212 | 0.0219 | 1.314 |
 | units mM/min, B8 | 0.0184 | 12.64 | 0.212 | 0.0219 | 1.314 |
+| B9 cell volume 4 fL | 0.0114 | 6.32 | 0.103 | 0.0151 | 0.847 |
 
 - **B4** — `DXS_na` now follows the paper: k_na (E_t − E_a), E_a = free (no IPP/DMAPP)
   *and* ThiDP-bound DXS, in consistent units. A unit-only fix (E_t − 1000·E_f) made
@@ -151,3 +152,11 @@ first data point, 80 µE, 13.5 mm, 96 h, RMSE vs. `growth_rates_by_density.csv`.
   the `unit_conversion` constants are named parameters (`chl_per_od`, `M_chl`,
   `cells_per_od` → derived `chl_ref`). Behaviour-preserving: RHS identical to the
   previous step up to 7e-16 (enzyme derivatives scaled by 1e-3).
+- **B9** — cell volume 4 fL (paper Methods states 4 fL; code had 2 fL). Proteomics
+  enzyme concentrations and initial pigment/squalene contents halve; phycobiliproteins
+  keep their legacy per-cell amounts; minimal kcats are unchanged (contents and enzymes
+  both scale with 1/V). The growth law keeps its per-cell form with the legacy slope as
+  the named parameter `chl_growth_slope` [cells mmol^-1], so Chl* = 1/(slope·V)
+  = 6.32 mM. **Open:** the measured Chl content (7.5 mg OD^-1 L^-1) is 19.9 mM at 4 fL,
+  3.15× Chl*; the slope's derivation isn't in the repo. Setting the slope to
+  1/Chl_measured per cell would make the growth law consistent with the data.

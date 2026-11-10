@@ -56,7 +56,9 @@ def _spectrum(path: Path) -> pd.Series:
     return pd.read_csv(path, index_col=0).squeeze(axis=1)
 
 
-def load_legacy_inputs(data: Path = DATA) -> LegacyInputs:
+def load_legacy_inputs(
+    data: Path = DATA, cell_volume: float = CELL_VOLUME
+) -> LegacyInputs:
     enzyme_costs = get_enzyme_costs(
         kugler_model_csv=data / "Amino_acid_costs_Kuglermodel.csv",
         aa_costs_csv=data / "Amino_acid_costs_arnold.csv",
@@ -71,7 +73,7 @@ def load_legacy_inputs(data: Path = DATA) -> LegacyInputs:
         proteomics_od_wt_csv=data / "20240328_Spectrum_OD_WT_proteomics.csv",
         proteomics_od_sqs_csv=data / "20240329_Spectrum_OD_sqs_proteomics.csv",
         proteomics_od_dcas9_csv=data / "20240329_Spectrum_OD_dCas9_proteomics.csv",
-        cell_volume=CELL_VOLUME,
+        cell_volume=cell_volume,
         protein_content=PROTEIN_CONTENT,
     )
     enzyme_concentrations = get_enzyme_concentrations(
@@ -87,7 +89,7 @@ def load_legacy_inputs(data: Path = DATA) -> LegacyInputs:
     )
     min_kcats = calculate_min_kcats(
         enzyme_concentrations_umol=enzyme_concentrations,
-        cell_volume=CELL_VOLUME,
+        cell_volume=cell_volume,
         doubling_time=DOUBLING_TIME,
     )
     abs_coef = pd.DataFrame(

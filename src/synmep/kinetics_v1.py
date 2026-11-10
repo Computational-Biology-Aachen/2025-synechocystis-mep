@@ -188,8 +188,13 @@ def chl_synthesis_rate(
     return V1 + V2
 
 
-def growth_function(chl_synthesis, cell_volume) -> float:
-    return (39566524308958.01) * (chl_synthesis * cell_volume)
+def growth_function(chl_synthesis, cell_volume, slope) -> float:
+    """Empirical growth law mu = slope x Chl synthesis per cell (paper Results).
+
+    [min^-1] = [cells mmol^-1] x [mM min^-1] x [L cell^-1]. At steady state it pins
+    Chl* = 1 / (slope x cell_volume) (ADR 0002 §2.2).
+    """
+    return slope * chl_synthesis * cell_volume
 
 
 def fraction_PGA_derivates_G3P(PGA):

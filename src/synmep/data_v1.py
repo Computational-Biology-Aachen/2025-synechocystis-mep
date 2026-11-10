@@ -19,6 +19,7 @@ from synmep.data import DATA, LegacyInputs, load_legacy_inputs
 from synmep.legacy_data import calculate_min_kcats
 
 DOUBLING_TIME = 330.0  # [min] 5.5 h turbidostat doubling time (paper Results)
+CELL_VOLUME = 4e-15  # [L cell^-1] (paper Methods; legacy code: 2 fL, B9)
 
 
 def get_enzyme_parameters(  # B6: defaults in mM
@@ -188,7 +189,7 @@ def get_enzyme_parameters(  # B6: defaults in mM
 
 
 def load_inputs(data: Path = DATA) -> LegacyInputs:
-    inp = load_legacy_inputs(data)
+    inp = load_legacy_inputs(data, cell_volume=CELL_VOLUME)
     enzyme_parameters = get_enzyme_parameters(
         mode="blast",
         blasted_parameters_csv=data / "enzyme_parameters_blasted.csv",
@@ -200,7 +201,7 @@ def load_inputs(data: Path = DATA) -> LegacyInputs:
     # content * ln2 / T_d with the legacy function.
     min_kcats = calculate_min_kcats(
         enzyme_concentrations_umol=inp.enzyme_concentrations_umol,
-        cell_volume=2e-15,
+        cell_volume=CELL_VOLUME,
         doubling_time=DOUBLING_TIME / math.log(2),
     )
     return replace(inp, enzyme_parameters=enzyme_parameters, min_kcat_values=min_kcats)

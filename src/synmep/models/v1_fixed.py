@@ -12,8 +12,8 @@ from typing import Literal
 from mxlpy import Model
 
 from synmep import kinetics_v1 as k
-from synmep.data import CAROT, CELL_VOLUME, CHLA, SQUALENE, LegacyInputs
-from synmep.data_v1 import load_inputs
+from synmep.data import CAROT, CHLA, SQUALENE, LegacyInputs
+from synmep.data_v1 import CELL_VOLUME, load_inputs
 from synmep.exprfn import clip_zero, expr_fn
 from synmep.surrogates.petc_legacy import Symbols, petc_expressions
 
@@ -83,8 +83,11 @@ def legacy_parameters(
         "NADPHsink_krev": 0.1,
         "Fdredsink_kfwd": 0.1,
         "Fdredsink_krev": 0.1,
-        "phycocyanin": 53180 * 2e-15 / CELL_VOLUME,
-        "allophycocyanin": 24076 * 2e-15 / CELL_VOLUME,
+        # legacy per-cell amounts (53180 / 24076 mg L^-1 at 2 fL, unsourced)
+        "phycocyanin": 53180 * 2e-15 / CELL_VOLUME,  # [mg L^-1]
+        "allophycocyanin": 24076 * 2e-15 / CELL_VOLUME,  # [mg L^-1]
+        # empirical growth law slope per cell (legacy constant, paper Results)
+        "chl_growth_slope": 39566524308958.01,  # [cells mmol(Chl)^-1]
     }
     ep = inp.enzyme_parameters
     for enzyme in ENZYME_NAMES:
@@ -182,7 +185,9 @@ def get_model(
         ],
     )
     m.add_derived(
-        "Growth_rate", fn=k.growth_function, args=["Chla_synthesis", "cell_volume"]
+        "Growth_rate",
+        fn=k.growth_function,
+        args=["Chla_synthesis", "cell_volume", "chl_growth_slope"],
     )
 
     if growth_mode == "dynamic":
@@ -198,7 +203,7 @@ def get_model(
     rxn(
         "Biomass",
         k.growth_function,
-        ["Chla_synthesis", "cell_volume"],
+        ["Chla_synthesis", "cell_volume", "chl_growth_slope"],
         {
             "NADPH": -8.762903549999999 / 60,
             "ATP": -33.0939284280016 / 60,
