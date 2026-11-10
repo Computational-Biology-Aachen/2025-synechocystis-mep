@@ -1,0 +1,101 @@
+# ADR 0002: Audit Findings of the Legacy Model
+
+**Status:** Accepted (findings); fixes scheduled for v1 (ADR 0001)
+**Scope:** `model.py`, `kinetics.py`, `main.ipynb` (legacy, "v0")
+
+---
+
+## 1. Context
+
+Before porting, the legacy model was audited for bugs, unit consistency and the reported
+instability. Details of the unit derivations are in `docs/units.md`; the inventory of
+magic numbers is in `docs/assumptions.md`. All numbers below come from the legacy model
+in the old pixi env (dshc, steady growth mode, default notebook parameters, density =
+row 24 of `growth_rates_by_density.csv`).
+
+## 2. Decision
+
+v0 reproduces all findings below unchanged (faithful port). v1 fixes them, one commit per
+fix, each with a before/after note appended to §5 of this ADR.
+
+### 2.1 Bugs (fix in v1)
+
+| #  | Finding | Location | Effect |
+| -- | ------- | -------- | ------ |
+| B1 | **Surrogate extrapolation + clipping.** The degree-7 polynomial is evaluated far outside its training range; outputs fall non-monotonically and are clipped `rates<0 → 0` (scalar path only, not the vectorised path) | `get_influx_rate_estimations` | **Main cause of instability** (§3) |
+| B2 | PETC rates converted with a *fixed* Chl (7.5 mg OD^-1 L^-1 → 39.79 mM), but the model's Chl state settles at 12.64 mM → supply is overestimated 3.15× and doesn't respond to Chl changes | `unit_conversion` | wrong magnitude, no Chl feedback |
+| B3 | Biomass drain = μ·stoich/60 with stoich in mmol gDW^-1: missing ρ_DW [gDW L^-1], spurious /60 → drain ≈ 2·10^4× too small; cofactor pools are set by arbitrary `*_out_metabolism` sinks instead | `Biomass` reaction | growth is not resource-coupled |
+| B4 | `DXS_na` computes `DXS − DXS_free` with DXS in µM and DXS_free in mM (already /1000) → IPP/DMAPP feedback on DXS monomerisation is effectively disabled | `kinetics.DXS_na` | regulation missing |
+| B5 | `v_sqs` mass-action ratio inverted: `(A·B/P)/Keq` instead of `P/(A·B)/Keq`; diverges as SQ → 0 | `kinetics.v_sqs` | latent singularity (masked by Keq = 7.6e27) |
+| B6 | Default Km/Ki/Kd applied after the µM→mM conversion → defaults are 100 mM / 1000 mM / 1 mM instead of µM | `get_enzyme_parameters` | many Km 1000× too high |
+| B7 | `reversible_ordered_2_comp*` contains `kcat·Et/(kcat·Et·Keq)` → 0/0 at Et = 0 | `kinetics` | NaN for knockouts (CrtE, ChlP) |
+| B8 | `unit_conversion` docstring says µM min^-1, the result is mM min^-1 | `unit_conversion` | documentation |
+| B9 | Cell volume 2 fL in code vs. 4 fL used for the empirical growth-law slope (paper) | notebook / `growth_function` | inconsistent; enzyme concentrations from proteomics also scale with 1/V |
+| B10 | min-kcat estimate uses `conc/T_d` instead of `conc·ln2/T_d`; T_d = 300 min vs. paper 330 min | `calculate_min_kcats` | factor 0.63 hidden in an unexplained ×2 |
+
+### 2.2 Modelling issues (decide per variant)
+
+- **Growth law pins Chl.** μ = v_Chl,cell / Chl_ref forces `Chl* = 1/(slope·V)` = 12.64 mM
+  at every steady state. μ = v_Chl/[Chl] is *not* a fix: it makes `dChl/dt ≡ 0`.
+- **"NADPH_sink_*" reactions** are reversible ATP ⇌ NADPH and ATP ⇌ Fdred mass action —
+  energy interconversion with no mechanism; misnamed.
+- **Implausible pool sizes**: ATP 11.5 mM, Fdred 7.3 mM, ThiDP 20 mM.
+- **1410 parameters** for 85 reactions (cross product of enzyme × compound × {Km,Ki,Kd}).
+- Missing Keq for IspF, IspG, ChlG, ThiG, Shc → 1e10.
+- Phycobiliprotein content (PC/Chl 1.50, APC/Chl 0.68 mg mg^-1) differs from the Fuente
+  defaults used to train the surrogate (7.0 / 2.0); its source is unknown.
+- The surrogate outputs NADPH : 3PGA : Fdred in the fixed ratio 1 : 8.96 : 2.96 (= the
+  biomass stoichiometry), so it has only **two** independent outputs (ATP, "biomass flux").
+
+## 3. Stiffness and instability diagnosis
+
+**Default parameters — stiff but stable.** The numerical Jacobian at steady state has all
+eigenvalues ≤ 0. The fastest modes (−157, −105, −7.6 min^-1) are IPP/HMB_PP/NADPH and
+GPP/FPP; the slowest (−7.7e-4 min^-1 = μ) are enzyme/pigment dilution modes (ThiDP, ChlP,
+CrtE, SQ). Stiffness ratio ≈ 2.3·10^5, plus one zero mode (Cell_density, constant in steady
+mode). BDF handles this; it is not the cause of failures.
+
+**Perturbations — failures come from the surrogate.** 12 random log-uniform (±1 decade)
+perturbations per parameter group, simulated to steady state:
+
+| group perturbed      | success | median wall time [s] | μ range [min^-1]   |
+| -------------------- | ------- | -------------------- | ------------------ |
+| cell density         | 100 %   | 61                   | 8.8e-5 – 9.8e-4    |
+| ksynth               | 92 %    | 74                   | 1.6e-4 – 5.8e-4    |
+| kcat                 | 83 %    | 68                   | 1.6e-4 – 1.2e-3    |
+| `*_out_metabolism`   | 83 %    | 67                   | 4.4e-5 – 1.1e-3    |
+| light                | 67 %    | 86                   | 2.8e-5 – 1.1e-3    |
+
+Failures are CVODE corrector-convergence failures, mostly early (t < 40 min). Probing the
+surrogate directly (baseline: light 100, Chl 12.64 mM):
+
+- light 200 → 400 → 800: 3PGA supply 8.3 → 1.4 → 0 (clipped); ATP 4.8 → 8.1 → 24.4
+- Chl 6 → 3 → 1 mM: ATP 5.4 → 11.8 → 1870; NADPH/3PGA/Fd clipped to 0
+
+Mechanism: anything that lowers Chl or raises light pushes the surrogate inputs (absorbed
+light per Chl, pigment ratios per Chl) out of the training range. The degree-7 polynomial
+then extrapolates wildly, and clipping makes the RHS non-smooth. Because Chl feeds back
+into the surrogate inputs (self-shading and the per-Chl normalisation), this forms a loop
+that the solver can't follow. This confirms the gut feeling that the growth/metabolism/PETC
+coupling is to blame, specifically **coupling through an extrapolating surrogate**, made
+worse by B2 (wrong Chl scaling).
+
+Runtime: one RHS call costs ≈ 10 ms (sklearn + pandas + Simpson); one steady state
+≈ 26 s at default parameters, 60–90 s when perturbed.
+
+## 4. Rationale / Consequences
+
+- v1 must keep the surrogate within its validity domain: clamp/saturate its inputs
+  smoothly, or retrain it with a range covering the scenarios (light up to ≥ 400 µE,
+  Chl down to the knock-down levels), with a monotone/bounded form. The surrogate's
+  training domain must be recorded with the coefficients.
+- Fixing B2 (dynamic Chl) and B3 (biomass drain) changes the qualitative coupling: supply
+  will scale with Chl and growth will draw on cofactors. Figs 9–12 must be re-checked
+  after each of these fixes.
+- Growth law for v1 (open, decided at checkpoint a): keep the empirical μ ∝ v_Chl law,
+  but with an explicit slope parameter and one consistent cell volume; document that Chl*
+  is pinned.
+
+## 5. Fix log (v1)
+
+_Filled in during stage 2._

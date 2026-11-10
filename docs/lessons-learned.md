@@ -27,3 +27,10 @@ for the minimal model.
 - **The surrogate costs ≈ 10 ms per RHS call** (sklearn + pandas + Simpson) and dominates
   runtime (26 s for one steady state). → Precompute everything that doesn't depend on
   state, and make the rest explicit numpy.
+- **The PETC surrogate has only two independent outputs.** NADPH : 3PGA : Fdred are always
+  1 : 8.96 : 2.96 (the biomass stoichiometry); ATP = that flux × 33.09/8.76 + an offset
+  (~2 at zero light). → A minimal model needs two supply terms (ATP, "biomass
+  precursor flux"), not four.
+- **Every observed failure came from surrogate extrapolation**, not intrinsic stiffness.
+  → Any surrogate (including the v2 ones) must ship with its training domain and be
+  bounded/smooth outside it. Prefer low-degree or monotone forms over degree-7 polynomials.
