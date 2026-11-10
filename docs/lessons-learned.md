@@ -75,3 +75,8 @@ for the minimal model.
 - **The early growth rise is not explained by pigments.** → If the minimal model must
   capture it, it needs a slow photosynthetic-capacity state, not pigment states.
 - **Depth resolution matters more than PETC detail**: it removed a 5x supply factor.
+- **Strain-optimisation advice is model-dependent but robust within thread g**: v0 →
+  IspG, v1 → DXS, every thread-g variant → Sqs, CrtE, MEP, DXS. → For the minimal model,
+  keep Sqs, CrtE (FPP/GGPP branch point) and DXS explicit; the MEP chain can stay lumped.
+- **Capacity acclimation explains more of the batch than pigment acclimation**, with a
+  slow (~100 h) timescale.

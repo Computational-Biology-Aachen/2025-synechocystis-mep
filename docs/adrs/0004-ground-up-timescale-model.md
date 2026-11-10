@@ -121,6 +121,13 @@ literature.
   B fits best (μ RMSE 0.0097 h^-1, ln N 0.156) with a ≈ 0, i.e. constant pigment
   contents. Neither reproduces the initial growth rise → capacity acclimation is the
   candidate mechanism (report: `docs/reports/g-thread.md`).
+- **Capacity acclimation** (variant C, `capacity`): slow state Cap scaling the PETC
+  supply, Cap* = (1+K) L_rel/(K+L_rel), dCap/dt = (Cap* − Cap)/τ, constant pigments.
+  Best fit so far (μ RMSE 0.0077 h^-1, ln N 0.141; K ≈ 59, τ ≈ 100 h), captures part of
+  the early rise.
+- **Strain optimisation** (Fig 12) runs on `models/g_coupled.py` (metabolism ODE +
+  growth layer at fixed density). All thread-g variants recommend Sqs, CrtE, MEP chain,
+  DXS (report: `docs/reports/strain-optimisation.md`).
 
 ## 3. Rationale
 - QSS at each timescale boundary is physically justified (s → min → h) and keeps the
