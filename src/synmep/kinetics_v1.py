@@ -31,11 +31,6 @@ def petc_supply(value, chl):
     return value * chl * 1e-3 * 60
 
 
-def chl_content(chl_per_od, m_chl, cells_per_od, cell_volume):
-    """[mg L^-1 OD^-1] / [g mol^-1] / [cells L^-1 OD^-1] / [L cell^-1] -> [mM]."""
-    return chl_per_od / m_chl / cells_per_od / cell_volume
-
-
 def DXS_active(DXS_f, ThiDP, KdThiDP):
     return DXS_f * (ThiDP / (KdThiDP + ThiDP))
 

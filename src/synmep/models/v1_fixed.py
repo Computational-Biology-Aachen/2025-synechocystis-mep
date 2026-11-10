@@ -75,10 +75,6 @@ def legacy_parameters(
         "beta_carotene_fraction": 0.26,
         "sample_depth_m": 0.01,
         "cell_volume": CELL_VOLUME,
-        # Chl content used to convert PETC rates (legacy `unit_conversion` constants)
-        "chl_per_od": 7.5,  # [mg L^-1 OD^-1] (legacy, unsourced)
-        "M_chl": 893.509,  # [g mol^-1] Chl a (ChEBI 189419)
-        "cells_per_od": 105482164.18012363 * 1000,  # [cells L^-1 OD^-1] calibration
         "NADPHsink_kfwd": 0.1,
         "NADPHsink_krev": 0.1,
         "Fdredsink_kfwd": 0.1,
@@ -142,11 +138,6 @@ def get_model(
     m = Model()
     m.add_variables({S(c): y0[c] for c in [*COMPOUNDS, "Cell_density"]})
     m.add_parameters({S(p): v for p, v in pars.items()})
-    m.add_derived(
-        "chl_ref",
-        fn=k.chl_content,
-        args=["chl_per_od", "M_chl", "cells_per_od", "cell_volume"],
-    )
 
     def rxn(name: str, fn, args: list[str], stoich: dict[str, float]) -> None:
         m.add_reaction(
@@ -233,7 +224,13 @@ def get_model(
         m.add_derived(S(name), fn=fn, args=args)
     for c in ("ATP", "NADPH", "3PGA", "Fdred"):
         m.add_derived(S(f"v{c}_prod"), fn=clip_zero, args=[S(f"v{c}_prod_raw")])
-        rxn(f"{c} production", k.petc_supply, [f"v{c}_prod", "chl_ref"], {c: 1})
+        # B2: convert with the model's own Chl, not a fixed content
+        rxn(
+            f"{c} production",
+            k.petc_supply,
+            [f"v{c}_prod", "chlorophyll-phytol"],
+            {c: 1},
+        )
 
     m.add_derived("G3P", fn=k.fraction_PGA_derivates_G3P, args=[S("3PGA")])
     m.add_derived("PYR", fn=k.fraction_PGA_derivates_PYR, args=[S("3PGA")])

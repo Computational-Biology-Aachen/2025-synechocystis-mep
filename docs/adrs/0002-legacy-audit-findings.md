@@ -122,6 +122,7 @@ first data point, 80 µE, 13.5 mm, 96 h, RMSE vs. `growth_rates_by_density.csv`.
 | B10 minimal kcats (ln2, 330 min) | 0.0184 | 12.64 | 0.212 | 0.0219 | 1.314 |
 | units mM/min, B8 | 0.0184 | 12.64 | 0.212 | 0.0219 | 1.314 |
 | B9 cell volume 4 fL | 0.0114 | 6.32 | 0.103 | 0.0151 | 0.847 |
+| B2 supply with dynamic Chl | 0.0046 | 6.32 | 0.049 | 0.0149 | 0.371 |
 
 - **B4** — `DXS_na` now follows the paper: k_na (E_t − E_a), E_a = free (no IPP/DMAPP)
   *and* ThiDP-bound DXS, in consistent units. A unit-only fix (E_t − 1000·E_f) made
@@ -160,3 +161,7 @@ first data point, 80 µE, 13.5 mm, 96 h, RMSE vs. `growth_rates_by_density.csv`.
   = 6.32 mM. **Open:** the measured Chl content (7.5 mg OD^-1 L^-1) is 19.9 mM at 4 fL,
   3.15× Chl*; the slope's derivation isn't in the repo. Setting the slope to
   1/Chl_measured per cell would make the growth law consistent with the data.
+- **B2** — PETC rates per mol Chl are converted with the model's Chl state instead of a
+  fixed 7.5 mg OD^-1 L^-1 content (19.9 mM at 4 fL vs. Chl* 6.32 mM): supply ÷ 3.15 at
+  steady state, and it now follows Chl changes (knock-down, acclimation). Cofactor pools
+  become physiological (ss ATP 11.8 → 1.9 mM, 3PGA 21 → 3.4 mM).
