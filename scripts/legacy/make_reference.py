@@ -99,7 +99,9 @@ def dump_structure() -> None:
             m, y0 = get_parameterised_model(strain=strain, growth_mode=mode)  # type: ignore
             tag = f"{strain}_{mode}"
             (OUT / f"parameters_{tag}.json").write_text(
-                json.dumps({k: float(v) for k, v in m.get_parameters().items()}, indent=1)
+                json.dumps(
+                    {k: float(v) for k, v in m.get_parameters().items()}, indent=1
+                )
             )
             (OUT / f"y0_{tag}.json").write_text(
                 json.dumps({k: float(v) for k, v in y0.items()}, indent=1)
