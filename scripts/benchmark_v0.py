@@ -10,6 +10,7 @@ written to docs/reports/benchmark-v0.json.
 
 from __future__ import annotations
 
+import copy
 import json
 import os
 import sys
@@ -60,7 +61,8 @@ def fig09(model, y0, integrator) -> pd.DataFrame:
 
 
 def fig11_point(t_ind: float, model, y0, integrator, t_end: float) -> pd.Series:
-    s = Simulator(model, y0=y0, integrator=integrator)
+    # Simulator.update_parameter mutates the model it was given: never share it
+    s = Simulator(copy.deepcopy(model), y0=y0, integrator=integrator)
     if t_ind > 0:
         s.simulate(t_ind)
     s.update_parameter("CrtE3Kcat", 0.01)

@@ -1,0 +1,86 @@
+{
+ "cpu_count": 22,
+ "workloads": {
+  "build": {
+   "model_construction_s": 1.9781829300000027,
+   "native_first_call_s": 9.195264710000629
+  },
+  "steady_state": {
+   "sundials": {
+    "median_s": 4.098961689000134,
+    "max_rel_dev": 7.056602517835943e-14
+   },
+   "native": {
+    "median_s": 0.409728689000076,
+    "max_rel_dev": 9.220011716384503e-07
+   }
+  },
+  "fig09": {
+   "sundials": {
+    "median_s": 2.633000761999938,
+    "max_dev_rel_to_max": {
+     "Growth_rate": 1.4908380641812794e-07,
+     "Cell_density": 1.9465500098531366e-08,
+     "SQ": 3.788129543009286e-08
+    }
+   },
+   "native": {
+    "median_s": 0.026794008999786456,
+    "max_dev_rel_to_max": {
+     "Growth_rate": 1.1922540498798378e-07,
+     "Cell_density": 4.3160312698351855e-08,
+     "SQ": 3.2960353702242256e-08
+    }
+   }
+  },
+  "fig10": {
+   "sundials_parallel": {
+    "wall_s": 22.6602987440001,
+    "max_rel_dev": 7.726110815006153e-12,
+    "n": 24
+   },
+   "native_serial": {
+    "wall_s": 23.986983118000353,
+    "max_rel_dev": 7.90470643271902e-08,
+    "n": 24
+   },
+   "native_parallel": {
+    "wall_s": 33.44111185299971,
+    "max_rel_dev": 7.90470643271902e-08,
+    "n": 24
+   }
+  },
+  "fig11": {
+   "sundials_parallel": {
+    "wall_s": 14.263405758999397,
+    "max_rel_dev": {
+     "Cell_density": 5.781630352615137e-08,
+     "SQ": 1.80744000822172e-07
+    },
+    "n": 14
+   },
+   "native_serial": {
+    "wall_s": 9.48416251799972,
+    "max_rel_dev": {
+     "Cell_density": 4.815529550291856e-08,
+     "SQ": 1.6223681045130582e-07
+    },
+    "n": 14
+   },
+   "native_parallel": {
+    "wall_s": 28.369980110000142,
+    "max_rel_dev": {
+     "Cell_density": 4.815529550291856e-08,
+     "SQ": 1.6223681045130582e-07
+    },
+    "n": 14
+   }
+  },
+  "legacy_modelbase_assimulo": {
+   "steady_state_y0": 20.77315247200022,
+   "fig09": 13.728095639000458,
+   "fig10": 88.98820000399974,
+   "fig11": 64.66421599800015
+  }
+ }
+}

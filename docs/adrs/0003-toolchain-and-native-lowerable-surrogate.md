@@ -55,9 +55,11 @@ sympy.
 
 ## 4. Consequences
 
-- First native call per process compiles the model (~20 s for v0, dominated by the
-  unrolled sums and the 4 × 792-term polynomials). After that a steady state takes
-  ~0.4 s. loky workers in parallel scans each compile once, so short scans run faster
+- First native call per process lowers and compiles the model: ~9 s for v0. This was
+  64 s before splitting the PETC block into small intermediates and emitting long sums
+  as balanced trees. The time is spent in mxlpy re-parsing functions into sympy
+  (quadratic `Add` rebuilding, `Max`/`Min` simplification over huge arguments), not in
+  the backend. After that a steady state takes ~0.4 s. loky workers in parallel scans each compile once, so short scans run faster
   serially (see `docs/reports/benchmark-v0.md`).
 - For the retrained pfennig surrogate (stage 2), pfennig2024's spectral derived
   quantities depend only on parameters, so they are replaced by parameters
