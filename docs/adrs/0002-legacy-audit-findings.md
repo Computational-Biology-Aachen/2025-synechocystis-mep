@@ -119,6 +119,7 @@ first data point, 80 µE, 13.5 mm, 96 h, RMSE vs. `growth_rates_by_density.csv`.
 | B5 Sqs mass-action ratio | 0.0317 | 12.64 | 0.299 | 0.0059 | 0.094 |
 | B7 ordered-mechanism 0/0 | 0.0317 | 12.64 | 0.299 | 0.0059 | 0.094 |
 | B6 default Km/Ki/Kd in µM | 0.0222 | 12.64 | 0.202 | 0.0286 | 1.635 |
+| B10 minimal kcats (ln2, 330 min) | 0.0184 | 12.64 | 0.212 | 0.0219 | 1.314 |
 
 - **B4** — `DXS_na` now follows the paper: k_na (E_t − E_a), E_a = free (no IPP/DMAPP)
   *and* ThiDP-bound DXS, in consistent units. A unit-only fix (E_t − 1000·E_f) made
@@ -140,3 +141,6 @@ first data point, 80 µE, 13.5 mm, 96 h, RMSE vs. `growth_rates_by_density.csv`.
   batch growth now overshoots after dilution (peak 0.12 h^-1, 6.8e9 cells mL^-1 at 96 h):
   **the legacy parameter set was effectively tuned around the buggy defaults**; v1 needs
   recalibration once all fixes are in.
+- **B10** — minimal kcats use the flux content·ln2/T_d with T_d = 330 min (paper: 5.5 h)
+  instead of content/300 min, i.e. all min-kcats × 0.63 (the unexplained ×2 safety
+  factor is kept).

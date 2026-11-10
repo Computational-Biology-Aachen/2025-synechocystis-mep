@@ -7,6 +7,7 @@ Only the parts that differ from `synmep.data` / `synmep.legacy_data` live here.
 
 from __future__ import annotations
 
+import math
 from dataclasses import replace
 from pathlib import Path
 from typing import Literal
@@ -15,6 +16,7 @@ import numpy as np
 import pandas as pd
 
 from synmep.data import DATA, LegacyInputs, load_legacy_inputs
+from synmep.legacy_data import calculate_min_kcats
 
 DOUBLING_TIME = 330.0  # [min] 5.5 h turbidostat doubling time (paper Results)
 
@@ -193,4 +195,12 @@ def load_inputs(data: Path = DATA) -> LegacyInputs:
         predicted_kms_csv=data / "predicted_Kms.csv",
         equilibrium_constants_csv=data / "Equilibrium_constants.csv",
     )
-    return replace(inp, enzyme_parameters=enzyme_parameters)
+    # B10 (ADR 0002): the legacy minimal kcats used flux = content / T_d instead of
+    # content * ln2 / T_d (and T_d = 300 min). Passing T_d / ln2 gives exactly
+    # content * ln2 / T_d with the legacy function.
+    min_kcats = calculate_min_kcats(
+        enzyme_concentrations_umol=inp.enzyme_concentrations_umol,
+        cell_volume=2e-15,
+        doubling_time=DOUBLING_TIME / math.log(2),
+    )
+    return replace(inp, enzyme_parameters=enzyme_parameters, min_kcat_values=min_kcats)
