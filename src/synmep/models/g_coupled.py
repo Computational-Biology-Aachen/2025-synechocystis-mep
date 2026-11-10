@@ -1,0 +1,148 @@
+"""Thread "g" at steady growth with the explicit metabolism ODE (ADR 0004).
+
+For metabolic control analysis over all enzyme levels (Fig 12), which the metabolism
+surrogate doesn't cover (it only has E_CrtE as input). Cell density N is a parameter
+(steady growth, e.g. turbidostat); the PETC still enters as its surrogate, the
+metabolism as the full g_metabolism ODE, and the slow pools as
+
+    none / coupled:      dX/dt = v_X - mu X              (X = Chl, Car)
+    photoacclimation:    Chl, Car relax to X_ref (1 + a) / (1 + a L_rel)
+    capacity:            Chl, Car constant (reference); Cap relaxes to Cap*(L_rel)
+    all:                 dSQ/dt = v_sq - mu SQ
+
+Parameters (petc_scale, pbs_scale, ...) are taken from a thread-g growth fit.
+"""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import sympy as sp
+from mxlpy import Model
+
+from synmep.data import DATA, LegacyInputs
+from synmep.exprfn import expr_fn
+from synmep.models import g_metabolism
+from synmep.models.g_growth import (
+    CELL_VOLUME,
+    L_REF,
+    PigmentRegulation,
+    per_nl,
+    petc_supply_expressions,
+    relaxation,
+    scaled,
+)
+
+
+def fitted_parameters(variant: PigmentRegulation) -> dict[str, float]:
+    suffix = "" if variant == "none" else f"-{variant}"
+    path = Path("docs/reports") / f"g-fit{suffix}.json"
+    return json.loads(path.read_text())["fitted"] if path.exists() else {}
+
+
+def flux_minus_dilution(v: float, x: float, mu: float) -> float:
+    return v - mu * x
+
+
+def get_model(
+    inp: LegacyInputs,
+    variant: PigmentRegulation = "none",
+    *,
+    cell_density: float = 1e7,  # [cells mL^-1] legacy Fig 12 condition
+    light: float = 100.0,  # legacy Fig 12 condition
+    sample_depth: float = 0.01,  # legacy default
+    depth_nodes: int = 5,
+    spectral_step: int = 5,
+) -> Model:
+    m = g_metabolism.get_model(pigment_coupling=1.0 if variant == "coupled" else 0.0)
+    m.remove_parameters(["S_PGA", "S_ATP"])
+    ref = g_metabolism.REFERENCE
+    m.add_variables({"Chl": ref.chl, "Car": ref.carotenoids, "SQ": ref.squalene})
+    m.add_parameters(
+        {
+            "N": cell_density,
+            "light": light,
+            "sample_depth_m": sample_depth,
+            "cell_volume": CELL_VOLUME,
+            "phycocyanin_ref": 53180 * 2e-15 / CELL_VOLUME,
+            "allophycocyanin_ref": 24076 * 2e-15 / CELL_VOLUME,
+            "pbs_scale": 1.0,
+            "ps_ratio": 5.9,
+            "beta_carotene_fraction": 0.26,
+            "petc_scale": 1.0,
+            "S_PGA_floor": 1e-3,
+            "acclimation_a": 1.0,
+            "L_ref": L_REF,
+            "Chl_ref": ref.chl,
+            "Car_ref": ref.carotenoids,
+            "capacity_K": 1.0,
+            "k_relax": 1.0,  # [min^-1] steady state only depends on the fixed point
+        }
+    )
+    m.update_parameters(
+        {
+            k: v
+            for k, v in fitted_parameters(variant).items()
+            if k in m.get_parameter_names()
+        }
+    )
+    m.add_derived("N_nL", fn=per_nl, args=["N"])
+    m.add_derived("phycocyanin", fn=scaled, args=["phycocyanin_ref", "pbs_scale"])
+    m.add_derived(
+        "allophycocyanin", fn=scaled, args=["allophycocyanin_ref", "pbs_scale"]
+    )
+
+    exprs = petc_supply_expressions(
+        inp, json.loads((DATA / "surrogates" / "petc_poly.json").read_text()),
+        depth_nodes, spectral_step,
+    )  # fmt: skip
+    chl, scale = sp.Symbol("Chl"), sp.Symbol("petc_scale")
+    exprs["L_rel"] = sp.Symbol("complex_abs_ps1_mean") / sp.Symbol("L_ref")
+    if variant == "capacity":
+        k_cap, l_rel = sp.Symbol("capacity_K"), sp.Symbol("L_rel")
+        exprs["Cap_target"] = (1 + k_cap) * l_rel / (k_cap + l_rel)
+        m.add_variable("Cap", 1.0)
+        scale = scale * sp.Symbol("Cap")
+    exprs["S_PGA"] = sp.Max(
+        sp.Symbol("J_3PGA") * chl * 0.06 * scale, sp.Symbol("S_PGA_floor")
+    )
+    exprs["S_ATP"] = sp.Max(sp.Symbol("J_ATP"), 0) * chl * 0.06 * scale
+    if variant == "photoacclimation":
+        a, l_rel = sp.Symbol("acclimation_a"), sp.Symbol("L_rel")
+        for s in ("Chl", "Car"):
+            exprs[f"{s}_target"] = sp.Symbol(f"{s}_ref") * (1 + a) / (1 + a * l_rel)
+    for name, expr in exprs.items():
+        fn, args = expr_fn(expr, origin=name)
+        m.add_derived(name, fn=fn, args=args)
+
+    for state, flux in (("Chl", "v_chl"), ("Car", "v_car"), ("SQ", "v_sq")):
+        if state == "SQ" or variant in ("none", "coupled"):
+            m.add_reaction(
+                f"net_{state}",
+                fn=flux_minus_dilution,
+                args=[flux, state, "mu"],
+                stoichiometry={state: 1},
+            )
+        elif variant == "photoacclimation":
+            m.add_reaction(
+                f"net_{state}",
+                fn=relaxation,
+                args=[state, f"{state}_target", "k_relax"],
+                stoichiometry={state: 1},
+            )
+        else:  # capacity: constant reference contents
+            m.add_reaction(
+                f"net_{state}",
+                fn=relaxation,
+                args=[state, f"{state}_ref", "k_relax"],
+                stoichiometry={state: 1},
+            )
+    if variant == "capacity":
+        m.add_reaction(
+            "net_Cap",
+            fn=relaxation,
+            args=["Cap", "Cap_target", "k_relax"],
+            stoichiometry={"Cap": 1},
+        )
+    return m

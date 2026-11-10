@@ -31,6 +31,7 @@ FIT_BY_VARIANT = {
     "none": ("petc_scale", "pbs_scale"),
     "coupled": ("petc_scale", "pbs_scale"),
     "photoacclimation": ("petc_scale", "pbs_scale", "acclimation_a"),
+    "capacity": ("petc_scale", "pbs_scale", "capacity_K", "capacity_tau"),
 }
 SIGMA_MU = 0.005  # [h^-1]
 SIGMA_LN_N = 0.05
@@ -75,11 +76,12 @@ def main() -> None:
     t = np.linspace(0, 96 * 60, len(data))
     ms = get_model(inp, "steady", pigment_regulation=variant)
     md = get_model(inp, "dynamic", pigment_regulation=variant)
+    p0 = np.array([md.get_parameter_values()[n] for n in fit_names])
     n0, n_pre = float(data.index[0]), float(data.index[24])
 
     def residuals(logp: np.ndarray) -> np.ndarray:
         res = simulate(
-            ms, md, dict(zip(fit_names, np.exp(logp), strict=True)), n_pre, n0, t
+            ms, md, dict(zip(fit_names, p0 * np.exp(logp), strict=True)), n_pre, n0, t
         )
         if res is None or len(res) != len(t):
             return np.full(2 * len(t), 1e3)
@@ -87,12 +89,12 @@ def main() -> None:
         r_n = (np.log(res["N"].to_numpy()) - np.log(data.index.to_numpy())) / SIGMA_LN_N
         return np.concatenate([r_mu, r_n])
 
-    x0 = np.zeros(len(fit_names))
+    x0 = np.zeros(len(fit_names))  # log of the factor relative to the defaults
     t0 = time.perf_counter()
     cost0 = 0.5 * np.sum(residuals(x0) ** 2)
     fit = least_squares(residuals, x0, x_scale=1.0, diff_step=1e-3, max_nfev=200)
     wall = time.perf_counter() - t0
-    best = dict(zip(fit_names, np.exp(fit.x), strict=True))
+    best = dict(zip(fit_names, p0 * np.exp(fit.x), strict=True))
     res = simulate(ms, md, best, n_pre, n0, t)
     assert res is not None
     mu_sim = res["mu"].to_numpy() * 60
