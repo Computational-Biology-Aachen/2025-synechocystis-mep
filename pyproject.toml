@@ -1,16 +1,43 @@
 [project]
-name = "2025-synechocystis-mep"
+name = "synmep"
 version = "0.1.0"
-description = "Add your description here"
+description = "Kinetic model of terpenoid (squalene) production via the MEP pathway in Synechocystis"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.13"
 dependencies = [
-    "ipykernel>=6.29.5",
-    "modelbase>=1.58.0",
-    "pebble>=5.1.1",
-    "scikit-learn==1.5.0",
+    "mxlpy[sundials,native]>=0.68.0",
+    "numpy>=2.0",
+    "pandas>=2.2",
+    "scipy>=1.14",
+    "matplotlib>=3.9",
     "seaborn>=0.13.2",
 ]
 
+[project.optional-dependencies]
+# Only needed to (re)train the PETC surrogate from pfennig2024 (ADR 0002 §4).
+surrogate = ["mxlmodels"]
+
+[dependency-groups]
+dev = ["ipykernel>=6.29.5", "pytest>=8.3", "ruff>=0.8", "nbconvert>=7.16"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/synmep"]
+
 [tool.uv]
 exclude-newer = "3 days"
+# mxlpy is developed alongside this repo: always allow the newest release (ADR 0001).
+exclude-newer-package = { mxlpy = false, mxlpy-native = false, sundials4py = false }
+
+[tool.uv.sources]
+# PyPI release 1.4.0 predates the pfennig2024 rewrite (PPFD parameter, spectral data).
+mxlmodels = { git = "https://github.com/Computational-Biology-Aachen/mxl-models", rev = "eb091337060469dd902b78680c8bfcb5dce3c17d" }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 88

@@ -1,12 +1,22 @@
 # Synechocystis MEP model
 
-Install [pixi according to the installation](https://pixi.sh/v0.47.0/#installation).
-At the time of writing this can be done on linux using
+Kinetic model of terpenoid (squalene) production via the MEP pathway in
+*Synechocystis* sp. PCC 6803, coupled to a surrogate of the pfennig2024
+photosynthetic electron transport model and a growth model.
 
-```curl -fsSL https://pixi.sh/install.sh | sh```
+## Installation
 
-Then run
+Install [uv](https://docs.astral.sh/uv/getting-started/installation/), then
 
-```pixi install```
+```bash
+uv sync --all-groups            # model + notebook
+uv sync --all-groups --extra surrogate   # + mxlmodels, to retrain the PETC surrogate
+```
 
-to install all of the dependencies.
+## Layout
+
+- `src/synmep/` — data loading, surrogates and the model variants (`models/`)
+- `main.ipynb` — figures
+- `data/` — raw data; `data/reference/` holds outputs of the legacy modelbase model
+- `docs/` — ADRs (`docs/adrs/CONTEXT.md` is the entry point), units, assumptions, reports
+- `scripts/legacy/` — scripts that only ran in the former pixi/modelbase environment
