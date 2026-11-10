@@ -50,3 +50,22 @@ for the minimal model.
   behaviour). A hand-written serial loop reusing one model object carries parameter
   changes (e.g. the Fig 11 CrtE knock-down) into later runs. → Use `scan.*` (protocols,
   time courses, steady states) for repeated runs, or a fresh model per run.
+
+## Thread "g" (ground-up model)
+
+- **Growth from the carbon balance works without fitting the magnitude**: PETC 3PGA supply
+  per g dry weight vs. the biomass stoichiometry gives μ ≈ 0.03 h^-1, the observed batch
+  range. → A minimal model can drop the empirical μ ∝ v_Chl law.
+- **The PETC has effectively 2 outputs and 4 inputs, and pigment contents only act
+  through absorption.** → Minimal model: one "absorbed light → carbon/ATP supply" curve.
+- **Surrogate inputs must come from the physical manifold**, otherwise chained
+  surrogates extrapolate at exactly the operating points that matter.
+- **Predict bounded quantities** (contents X*, not fluxes) when a downstream division by
+  a vanishing rate (μ) is involved.
+- **Depth-averaged light into a nonlinear PETC kills growth in dense cultures.** → A
+  minimal model needs at least a coarse depth resolution (or an analytic depth integral of
+  a saturating light-response curve).
+- **Pigment contents need regulation** to stay physiological at low growth.
+- Global polynomials hit their limits at limitation switches (p95 errors 15–20 % even
+  in 3D). → For the minimal model, prefer closed-form saturating functions with few
+  parameters over polynomial surrogates.

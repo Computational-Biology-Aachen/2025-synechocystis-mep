@@ -14,6 +14,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import numpy as np
+import pandas as pd
 import sympy as sp
 from scipy.integrate import simpson
 
@@ -43,14 +44,27 @@ def simpson_weights(n: int) -> np.ndarray:
 
 
 def petc_expressions(inp: LegacyInputs, s: Symbols) -> dict[str, sp.Expr]:
-    """Expressions for the light model and the raw PETC surrogate outputs.
+    """Light model (`light_expressions`) plus the raw legacy PETC surrogate outputs.
+
+    Adds `vATP_prod_raw`, `vNADPH_prod_raw`, `v3PGA_prod_raw`, `vFdred_prod_raw`
+    [mmol mol(Chl)^-1 s^-1], unclipped. The legacy scalar path clips them at zero; v0
+    does that with `synmep.exprfn.clip_zero`.
+    """
+    out = light_expressions(inp, s)
+    out |= polynomial_expressions(
+        inp.surrogate_poly,
+        {name: sp.Symbol(name) for name in inp.surrogate_poly["feature_names"]},
+    )
+    return out
+
+
+def light_expressions(inp: LegacyInputs, s: Symbols) -> dict[str, sp.Expr]:
+    """Expressions for the self-shading light model and the absorbed light per complex.
 
     Returned in dependency order; every entry may reference the names of earlier
-    entries, so each becomes one (small) derived quantity. Ends with the surrogate
-    inputs `complex_abs_ps1/ps2/pbs`, `light_ocp`, `pigment_*` and the unclipped
-    outputs `vATP_prod_raw`, `vNADPH_prod_raw`, `v3PGA_prod_raw`, `vFdred_prod_raw`
-    [mmol mol(Chl)^-1 s^-1]. The legacy scalar path clips them at zero; the model does
-    that with `synmep.exprfn.clip_zero`.
+    entries, so each becomes one (small) derived quantity. Ends with the absorbed
+    light per complex `complex_abs_ps1/ps2/pbs` [µmol(photons) mmol(Chl)^-1 s^-1],
+    `light_ocp` and the photoactive pigment contents `pigment_*` [mg mg(Chl)^-1].
     """
     S = {k: sp.Symbol(v) for k, v in s.__dict__.items()}
     w = simpson_weights(len(inp.light_spectrum))
@@ -145,10 +159,6 @@ def petc_expressions(inp: LegacyInputs, s: Symbols) -> dict[str, sp.Expr]:
     define("light_ocp", integrate(ocp))
     define("pigment_phycocyanin", photo["phycocyanin"])
     define("pigment_allophycocyanin", photo["allophycocyanin"])
-    out |= polynomial_expressions(
-        inp.surrogate_poly,
-        {name: sp.Symbol(name) for name in inp.surrogate_poly["feature_names"]},
-    )
     return out
 
 
@@ -175,3 +185,28 @@ def polynomial_expressions(
         )
         res[f"{names[str(out)]}_raw"] = expr
     return res
+
+
+def evaluate_light(
+    inp: LegacyInputs,
+    states: pd.DataFrame,
+    parameters: dict[str, float],
+    outputs: tuple[str, ...] = ("complex_abs_ps1", "complex_abs_ps2", "complex_abs_pbs",
+                                "light_ocp"),
+) -> pd.DataFrame:  # fmt: skip
+    """Vectorised evaluation of `light_expressions` for many states at once.
+
+    `states` and `parameters` together must provide every field of `Symbols` (the
+    column/key names are the field names: chl, carotenoids, cell_density [cells nL^-1],
+    light, ...).
+    """
+    exprs = light_expressions(
+        inp, Symbols(**{f: f for f in Symbols.__dataclass_fields__})
+    )
+    env: dict[str, np.ndarray | float] = {c: states[c].to_numpy(float) for c in states}
+    env |= {k: v for k, v in parameters.items() if k not in env}
+    for name, expr in exprs.items():
+        syms = sorted(expr.free_symbols, key=str)
+        fn = sp.lambdify(syms, expr, modules="numpy")
+        env[name] = fn(*(env[str(s)] for s in syms)) * np.ones(len(states))
+    return pd.DataFrame({o: env[o] for o in outputs}, index=states.index)

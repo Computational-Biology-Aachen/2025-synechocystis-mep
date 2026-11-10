@@ -34,6 +34,9 @@ POOLS = ("PGA", "ATP", "NADPH", "MEPi", "IPP", "FPP", "GGPP")
 ENZYMES = ("DXS", "MEP", "CrtE", "Sqs", "CrtB", "Chl")  # CrtE makes FPP and GGPP
 SUPPLIES = ("S_PGA", "S_ATP")
 OUTPUTS = ("mu", "v_chl", "v_car", "v_sq")
+# what the growth layer needs: mu and the steady-state contents X* = v_X / mu [mM]
+# (bounded, unlike fluxes divided by a vanishing mu; ADR 0004)
+SURROGATE_OUTPUTS = ("mu", "Chl_star", "Car_star", "SQ_star")
 
 # Km / Ki [mM]: legacy blast/literature values where available (docs/assumptions.md)
 KM = {
@@ -147,11 +150,15 @@ REFERENCE = Reference()
 
 
 def reference_fluxes(ref: Reference = REFERENCE) -> dict[str, float]:
-    mu = ref.mu
+    """Fluxes at the reference state, including dilution of the intermediate pools."""
+    mu, p = ref.mu, ref.pools
     j = {"chl": mu * ref.chl, "car": mu * ref.carotenoids, "sq": mu * ref.squalene}
-    j["ggpps"] = j["chl"] + 2 * j["car"]
-    j["fpps"] = j["ggpps"] + 2 * j["sq"]
-    j["ipp"] = 3 * j["fpps"] + j["ggpps"]  # C5 units: 3 per FPP, 1 more per GGPP
+    j["ggpps"] = j["chl"] + 2 * j["car"] + mu * p["GGPP"]
+    j["fpps"] = j["ggpps"] + 2 * j["sq"] + mu * p["FPP"]
+    # C5 units: 3 per FPP, 1 more per GGPP, plus dilution of IPP
+    j["mep"] = 3 * j["fpps"] + j["ggpps"] + mu * p["IPP"]
+    j["dxs"] = j["mep"] + mu * p["MEPi"]
+    j["ipp"] = j["mep"]
     j["bio"] = mu * RHO_DW  # [gDW L^-1 min^-1]
     return j
 
@@ -161,19 +168,19 @@ def reference_parameters(ref: Reference = REFERENCE) -> dict[str, float]:
     j, p, sat = reference_fluxes(ref), ref.pools, 0.5
     dil = {k: ref.mu * v for k, v in p.items()}
 
-    pga_demand = BIOMASS["PGA"] * j["bio"] + 2 * j["ipp"] + dil["PGA"]
+    pga_demand = BIOMASS["PGA"] * j["bio"] + 2 * j["dxs"] + dil["PGA"]
     s_pga = pga_demand / (1 - ref.pga_overflow)
     nadph_demand = (
-        BIOMASS["NADPH"] * j["bio"] + 3 * j["ipp"] + 3 * j["chl"] + j["sq"]
+        BIOMASS["NADPH"] * j["bio"] + 3 * j["mep"] + 3 * j["chl"] + j["sq"]
     ) + dil["NADPH"]
     s_nadph = nadph_demand / (1 - ref.nadph_overflow)
     s_atp = ref.j_atp_petc * ref.chl * 0.06
-    atp_demand = BIOMASS["ATP"] * j["bio"] + 3 * j["ipp"] + dil["ATP"]
+    atp_demand = BIOMASS["ATP"] * j["bio"] + 3 * j["mep"] + dil["ATP"]
     bio_sat = (ref.mu / MU_MAX) ** (1 / 3)
     return {
-        "V_DXS": j["ipp"]
+        "V_DXS": j["dxs"]
         / (mm(p["PGA"], KM["DXS_PGA"]) / (1 + 1 + p["MEPi"] / KI["DXS_MEPi"])),
-        "V_MEP": j["ipp"]
+        "V_MEP": j["mep"]
         / (sat * mm(p["NADPH"], KM["MEP_NADPH"]) * mm(p["ATP"], KM["MEP_ATP"])),
         "V_FPPS": j["fpps"]
         * (1 + p["FPP"] / KI["FPPS_FPP"])

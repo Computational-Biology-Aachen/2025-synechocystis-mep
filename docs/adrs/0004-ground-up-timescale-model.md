@@ -95,8 +95,25 @@ literature.
 - **Parallel scans with the native runner hung** (loky workers idle, main process busy);
   serial scans are used (4000 PETC steady states in ~1 min).
 - At very low supply, steady-state pigment contents per cell rise strongly, because
-  pigment synthesis doesn't slow with growth. Open: whether the fit needs growth-coupled
-  pigment synthesis.
+  pigment synthesis doesn't slow with growth (see `docs/reports/g-thread.md`).
+- **Surrogates must be trained on physically realisable inputs.** Independently sampled
+  inputs left real operating points (low PBS:PS1 at 4 fL; high ATP:PGA supply ratios)
+  outside the joint training distribution, where per-input clamping can't help and the
+  polynomials extrapolated to negative supply or spurious growth. The PETC training
+  samples culture states through the light model (incl. `pbs_scale`); the metabolism
+  training samples supplies from the PETC training data × `petc_scale`.
+- **The metabolism surrogate predicts steady-state contents X* = v_X/μ, not fluxes.**
+  The growth layer relaxes `dX/dt = μ (X* − X)`, identical at QSS, but bounded when
+  μ → 0 (the flux form ran away to 255 mM carotenoids). In steady mode the relaxation
+  uses a fast constant rate (same fixed point, converges).
+- Native's steady-state search fails for very slowly relaxing states where Sundials
+  converges; `runners.steady_state_scan` retries failures with Sundials.
+
+### 2.7 Fit status
+Two fitted parameters (`petc_scale` 5.48, `pbs_scale` 1.26): μ RMSE 0.013 h^-1, ln N
+RMSE 0.23. The acclimation rise and the peak are reproduced; growth collapses after
+~50 h because the PETC is evaluated at the depth-averaged light (see the report for the
+proposed depth-resolved PETC and pigment regulation).
 
 ## 3. Rationale
 - QSS at each timescale boundary is physically justified (s → min → h) and keeps the
