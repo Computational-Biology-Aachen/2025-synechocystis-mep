@@ -44,6 +44,11 @@ fix, each with a before/after note appended to §5 of this ADR.
 - Missing Keq for IspF, IspG, ChlG, ThiG, Shc → 1e10.
 - Phycobiliprotein content (PC/Chl 1.50, APC/Chl 0.68 mg mg^-1) differs from the Fuente
   defaults used to train the surrogate (7.0 / 2.0); its source is unknown.
+- The pickled surrogate is a **degree-5** polynomial (792 terms per output, no input
+  scaling), while the paper's Methods describe a seventh-degree polynomial.
+- In the current mxl-models pfennig2024, pigment contents only enter via the absorbed
+  light per complex, so the legacy surrogate's three `pigment_*` inputs are redundant
+  given `complex_abs_*` and `light_ocp`.
 - The surrogate outputs NADPH : 3PGA : Fdred in the fixed ratio 1 : 8.96 : 2.96 (= the
   biomass stoichiometry), so it has only **two** independent outputs (ATP, "biomass flux").
 
@@ -92,9 +97,14 @@ Runtime: one RHS call costs ≈ 10 ms (sklearn + pandas + Simpson); one steady s
 - Fixing B2 (dynamic Chl) and B3 (biomass drain) changes the qualitative coupling: supply
   will scale with Chl and growth will draw on cofactors. Figs 9–12 must be re-checked
   after each of these fixes.
-- Growth law for v1 (open, decided at checkpoint a): keep the empirical μ ∝ v_Chl law,
-  but with an explicit slope parameter and one consistent cell volume; document that Chl*
-  is pinned.
+- **Decided at checkpoint a — growth law (v1):** keep the empirical μ ∝ v_Chl law, with
+  an explicit slope parameter and one consistent cell volume; the PETC supply conversion
+  uses the dynamic Chl state (fixes B2). Document that Chl* is pinned. The cell volume value
+  (2 vs. 4 fL) is still open.
+- **Decided at checkpoint a — surrogate (v1):** **retrain** the PETC surrogate from the
+  current mxl-models `pfennig2024_synechocystis` over a wider, documented input domain with
+  a bounded form (fixes B1). The pfennig steady states are computed with the mxlpy
+  **native** runner. The exact legacy polynomial is kept only for v0.
 
 ## 5. Fix log (v1)
 
