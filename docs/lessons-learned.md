@@ -34,3 +34,15 @@ for the minimal model.
 - **Every observed failure came from surrogate extrapolation**, not intrinsic stiffness.
   → Any surrogate (including the v2 ones) must ship with its training domain and be
   bounded/smooth outside it. Prefer low-degree or monotone forms over degree-7 polynomials.
+
+## Stage 1 — port
+
+- **v0 has 195 used parameters** (of 1410 legacy ones). `get_unused_parameters()` is a
+  cheap first cut for any variant.
+- **Native compile cost scales with expression size.** The 301-wavelength sums and
+  4 × 792-term polynomials take ~20 s to compile. → A minimal model should use a small
+  surrogate (few inputs, low degree) and a coarse or analytic light model; this also
+  makes parallel scans cheap (each worker compiles once).
+- **The legacy model is fully reproducible from the CSVs + one coefficient file**: no
+  hidden state in the pickle beyond the polynomial. Every later variant can start from
+  `load_legacy_inputs()`.
