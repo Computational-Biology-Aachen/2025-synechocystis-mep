@@ -46,7 +46,7 @@ for the minimal model.
 - **The legacy model is fully reproducible from the CSVs + one coefficient file**: no
   hidden state in the pickle beyond the polynomial. Every later variant can start from
   `load_legacy_inputs()`.
-- **`Simulator.update_parameter` mutates the model passed to it** (mxlpy keeps a
-  reference). A serial loop reusing one model object silently carries parameter changes
-  (e.g. the Fig 11 CrtE knock-down) into later runs. → Always pass a fresh model or a
-  `copy.deepcopy` per run in protocol loops (Fig 11, Fig 12 MCA loop).
+- **`Simulator.update_parameter` mutates the model passed to it** (expected mxlpy
+  behaviour). A hand-written serial loop reusing one model object carries parameter
+  changes (e.g. the Fig 11 CrtE knock-down) into later runs. → Use `scan.*` (protocols,
+  time courses, steady states) for repeated runs, or a fresh model per run.

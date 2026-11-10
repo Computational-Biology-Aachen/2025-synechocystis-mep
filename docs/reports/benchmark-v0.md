@@ -50,7 +50,7 @@ Sundials and 50–500× faster than the legacy setup.
 - **Steady states gain less (10×) than time courses (~100×).** `simulate_to_steady_state`
   integrates in segments and checks convergence, with Python overhead between segments.
   The time course runs in one native call.
-- **Compile time was 64 s before restructuring.** It is spent in mxlpy re-parsing every
+- **Compile time was 64 s before restructuring** ([MxlPy#203](https://github.com/Computational-Biology-Aachen/MxlPy/issues/203)). It is spent in mxlpy re-parsing every
   model function into sympy, not in the backend compile. Splitting the PETC block into
   small intermediates and emitting long sums as balanced trees cut it to ~9–11 s
   (ADR 0003). The remaining cost comes from the 5 × 301-term spectral sums and the
@@ -58,9 +58,10 @@ Sundials and 50–500× faster than the legacy setup.
 
 ## Pitfalls found while benchmarking
 
-- mxlpy's `Simulator.update_parameter` mutates the model it was given. A serial loop
-  that reuses one model object carries parameter changes into later runs. This produced
-  wrong Fig 11 results (SQ off by 2000×) until each run got its own model copy.
+- `Simulator.update_parameter` mutates the model it was given (expected behaviour;
+  `scan.*` is the tool for repeated runs). The hand-written serial Fig 11 loop reused one
+  model object and produced wrong results (SQ off by 2000×) until each run got its own
+  model.
 - Generated model functions must be readable from worker processes (their source is
   needed for lowering). They are now written to content-hashed files (`synmep.exprfn`).
 

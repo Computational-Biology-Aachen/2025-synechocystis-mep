@@ -42,11 +42,13 @@ sympy.
 
 - Explicit expressions are exact (polynomial vs sklearn: rtol 1e-9; v0 RHS/fluxes vs
   legacy at 15 checkpoints: rtol 1e-7), introspectable, and lowerable.
-- Two mxlpy 0.68 limitations were found while porting (to be reported upstream, not
-  patched here, per ADR 0001):
-  - **Native can't lower model data.** `add_data` series used in derived functions give
+- Two mxlpy 0.68 limitations were found while porting (reported upstream, not patched
+  here, per ADR 0001):
+  - **Native can't lower model data**
+    ([MxlPy#201](https://github.com/Computational-Biology-Aachen/MxlPy/issues/201)). `add_data` series used in derived functions give
     `NativeLoweringError: KeyError('<data name>')`. This affects pfennig2024 itself.
-  - **Generated functions with `math.*` calls can't be re-parsed.** `expr_to_fn`
+  - **Generated functions with `math.*` calls can't be re-parsed**
+    ([MxlPy#202](https://github.com/Computational-Biology-Aachen/MxlPy/issues/202)). `expr_to_fn`
     output calls e.g. `math.exp`, but `source_tools._handle_call` resolves `math`
     through `inspect.getmodule(fn)`, which a generated function doesn't have
     (`KeyError: 'math'`). The function then can't be converted back to sympy, and the
@@ -59,7 +61,8 @@ sympy.
   64 s before splitting the PETC block into small intermediates and emitting long sums
   as balanced trees. The time is spent in mxlpy re-parsing functions into sympy
   (quadratic `Add` rebuilding, `Max`/`Min` simplification over huge arguments), not in
-  the backend. After that a steady state takes ~0.4 s. loky workers in parallel scans each compile once, so short scans run faster
+  the backend ([MxlPy#203](https://github.com/Computational-Biology-Aachen/MxlPy/issues/203)).
+  After that a steady state takes ~0.4 s. loky workers in parallel scans each compile once, so short scans run faster
   serially (see `docs/reports/benchmark-v0.md`).
 - For the retrained pfennig surrogate (stage 2), pfennig2024's spectral derived
   quantities depend only on parameters, so they are replaced by parameters
