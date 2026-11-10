@@ -80,3 +80,10 @@ for the minimal model.
   keep Sqs, CrtE (FPP/GGPP branch point) and DXS explicit; the MEP chain can stay lumped.
 - **Capacity acclimation explains more of the batch than pigment acclimation**, with a
   slow (~100 h) timescale.
+- **The culture-level squalene optimum only exists in variants where pigments feed back
+  on growth** (v0, v1, g-none, g-coupled: optimum at 100–460x Sqs, ~1e9 cells/mL);
+  fixed-pigment variants (B, C) saturate instead. → The minimal model must keep the
+  FPP/GGPP competition and a pigment → light-harvesting → growth link; pigment contents
+  can't simply be parameters if the trade-off question is to be answered (contrast with
+  the batch fit, which preferred constant pigments).
+- **Enzyme cost is missing in thread g** and would bound the optimum more tightly.
