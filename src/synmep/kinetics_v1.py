@@ -1,8 +1,7 @@
 """Rate laws of v1 (started as a copy of `kinetics_legacy`; fixes per ADR 0002 §5).
 
-modelbase rate functions are inlined below. Known bugs are kept on purpose (ADR 0002):
-B4 `DXS_na` mixes µM and mM, B5 `v_sqs` has an inverted mass-action ratio,
-B7 `reversible_ordered_2_comp*` is 0/0 at Et = 0.
+modelbase rate functions are inlined below. Units: mM, min. Enzyme concentrations are
+in mM too, so the legacy hidden `Et / 1000` (µM -> mM) conversions are gone.
 """
 
 
@@ -24,11 +23,17 @@ def ping_pong_4(A, B, C, D, vmax, kmA, kmB, kmC, kmD):
     )
 
 
-def unit_conversion(value, cell_volume):
-    """[mmol mol(Chl)^-1 s^-1] -> [mM min^-1] (legacy docstring wrongly said µM, B8)."""
-    return (
-        value * ((7.5 / 893.509 / (105482164.18012363 * 1000) / cell_volume) * 1e-3)
-    ) * 60
+def petc_supply(value, chl):
+    """PETC rate [mmol mol(Chl)^-1 s^-1] x Chl [mM] -> [mM min^-1].
+
+    The legacy `unit_conversion` documented µM min^-1 but returned mM min^-1 (B8).
+    """
+    return value * chl * 1e-3 * 60
+
+
+def chl_content(chl_per_od, m_chl, cells_per_od, cell_volume):
+    """[mg L^-1 OD^-1] / [g mol^-1] / [cells L^-1 OD^-1] / [L cell^-1] -> [mM]."""
+    return chl_per_od / m_chl / cells_per_od / cell_volume
 
 
 def DXS_active(DXS_f, ThiDP, KdThiDP):
@@ -38,7 +43,7 @@ def DXS_active(DXS_f, ThiDP, KdThiDP):
 def DXS_free(
     DXS_total, IPP, DMAPP, KdIPP, KdDMAPP
 ):  # Amount of free, active DXS enzyme
-    return DXS_total / 1000 / (1 + IPP / KdIPP + DMAPP / KdDMAPP)
+    return DXS_total / (1 + IPP / KdIPP + DMAPP / KdDMAPP)
 
 
 def v_dxs(
@@ -59,10 +64,10 @@ def DXS_na(DXS, KnaDXS, IPP, DMAPP, KdIPP, KdDMAPP, ThiDP, KdThiDP):
 
     B4 (ADR 0002): the legacy code used E_t - E_f with E_f already divided by 1000
     (µM - mM), so practically all DXS was monomerised regardless of IPP/DMAPP. E_a is
-    the active enzyme (free of IPP/DMAPP and ThiDP-bound), converted back to µM.
+    the active enzyme (free of IPP/DMAPP and ThiDP-bound).
     """
     DXS_a = DXS_active(DXS_free(DXS, IPP, DMAPP, KdIPP, KdDMAPP), ThiDP, KdThiDP)
-    return KnaDXS * (DXS - DXS_a * 1000)
+    return KnaDXS * (DXS - DXS_a)
 
 
 def universal_hill_2_1(A, B, P, kcat, Et, KmA, KmB, KmP, Keq, h):
@@ -72,7 +77,6 @@ def universal_hill_2_1(A, B, P, kcat, Et, KmA, KmB, KmP, Keq, h):
     numerator = (
         kcat
         * Et
-        / 1000
         * a
         * b
         * (1 - ((P / (A * B)) / Keq))
@@ -84,11 +88,11 @@ def universal_hill_2_1(A, B, P, kcat, Et, KmA, KmB, KmP, Keq, h):
 
 
 def reversible_michaelis_menten_keq_kcat(S, P, kcat, Et, KmS, KmP, Keq):
-    return ((kcat * Et / 1000) * (S - P / Keq)) / (KmS * (1 + P / KmP) + S)
+    return ((kcat * Et) * (S - P / Keq)) / (KmS * (1 + P / KmP) + S)
 
 
 def reversible_michaelis_menten_keq_kcat_comp1(S, P, kcat, Et, KmS, KmP, Keq, I, Ki):
-    return ((kcat * Et / 1000) * (S - P / Keq)) / (KmS * (1 + P / KmP + I / Ki) + S)
+    return ((kcat * Et) * (S - P / Keq)) / (KmS * (1 + P / KmP + I / Ki) + S)
 
 
 def v_sqs(
@@ -100,7 +104,6 @@ def v_sqs(
     numerator = (
         kcat
         * Et
-        / 1000
         * a
         * b
         * (1 - ((P / (A * B)) / Keq))  # B5: was (A * B / P) / Keq (inverted)
@@ -112,7 +115,7 @@ def v_sqs(
 
 
 def reversible_ordered_2_comp1(A, B, P, A2, KcatF, Et, KmA, KmA2, KmB, KmP, KiA, Keq):
-    numerator = KcatF * Et / 1000 * (A * B - (P / Keq))
+    numerator = KcatF * Et * (A * B - (P / Keq))
     denominator = (
         A * B
         + KmA * (1 + A2 / KmA2) * B
@@ -125,7 +128,7 @@ def reversible_ordered_2_comp1(A, B, P, A2, KcatF, Et, KmA, KmA2, KmB, KmP, KiA,
 def reversible_ordered_2_comp2(
     A, B, P, A2, A3, KcatF, Et, KmA, KmA2, KmA3, KmB, KmP, KiA, Keq
 ):
-    numerator = KcatF * Et / 1000 * (A * B - (P / Keq))
+    numerator = KcatF * Et * (A * B - (P / Keq))
     denominator = (
         A * B
         + KmA * (1 + A2 / KmA2 + A3 / KmA3) * B

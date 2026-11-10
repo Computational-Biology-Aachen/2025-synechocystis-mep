@@ -19,6 +19,12 @@ from synmep.surrogates.petc_legacy import Symbols, petc_expressions
 
 __all__ = ["get_model", "load_inputs"]
 
+UM_TO_MM = 1e-3
+# enzyme made per unit of synthesis rate; the legacy stoichiometry was sf * 1000 µM =
+# 0.1 µM per µM min^-1 of `ksynth`-limited rate, and cofactors 1e-4 x cost [mM], i.e.
+# 0.1 x cost per mM of enzyme rate (same behaviour, now in mM)
+ENZYME_SYNTHESIS_YIELD = 0.1
+
 Strain = Literal["wt", "dshc"]
 GrowthMode = Literal["steady", "dynamic"]
 
@@ -64,11 +70,15 @@ def legacy_parameters(
         "Fdred_out_metabolism": 0.5,
         "Kna_DXS": 0.000004,
         "DXS_na_kdeg": 1 / 50000,
-        "DXS_inh_str": 0.1,
+        "DXS_inh_str": 0.1e-3,  # [mM] (legacy 0.1 µM, unsourced)
         "ps_ratio": 5.9,
         "beta_carotene_fraction": 0.26,
         "sample_depth_m": 0.01,
         "cell_volume": CELL_VOLUME,
+        # Chl content used to convert PETC rates (legacy `unit_conversion` constants)
+        "chl_per_od": 7.5,  # [mg L^-1 OD^-1] (legacy, unsourced)
+        "M_chl": 893.509,  # [g mol^-1] Chl a (ChEBI 189419)
+        "cells_per_od": 105482164.18012363 * 1000,  # [cells L^-1 OD^-1] calibration
         "NADPHsink_kfwd": 0.1,
         "NADPHsink_krev": 0.1,
         "Fdredsink_kfwd": 0.1,
@@ -86,13 +96,14 @@ def legacy_parameters(
                 if (key := f"{enzyme}{s}{p}") in ep:
                     pars[key] = ep[key]
     for d, value in inp.enzyme_concentrations_umol.items():
-        pars[f"{d}_ksynth"] = value / (5.5 * 60) * 2
+        # [mM min^-1]: doubling of the enzyme every 5.5 h, x2 (legacy)
+        pars[f"{d}_ksynth"] = value * UM_TO_MM / (5.5 * 60) * 2
         for suffix in ("KmA", "KmB", "KmC", "KmD"):
             pars[f"{d}_synth_{suffix}"] = 1
         pars[f"{d}_synth_h"] = 1
     # notebook overrides
     pars |= {"light": 100, "cell_volume": CELL_VOLUME}
-    pars |= {"DXS_inh_str": 0.001, "ThiGDXPKm": 0.01}
+    pars |= {"DXS_inh_str": 0.001e-3, "ThiGDXPKm": 0.01}  # [mM]
     pars |= {
         key: v
         for key, v in inp.min_kcat_values.items()
@@ -100,7 +111,7 @@ def legacy_parameters(
     }
 
     y0 = dict.fromkeys(COMPOUNDS, 0.01)
-    y0 |= inp.enzyme_concentrations_umol
+    y0 |= {e: c * UM_TO_MM for e, c in inp.enzyme_concentrations_umol.items()}
     y0 |= {
         "3PGA": 0.1,
         "ATP": 0.1,
@@ -128,6 +139,11 @@ def get_model(
     m = Model()
     m.add_variables({S(c): y0[c] for c in [*COMPOUNDS, "Cell_density"]})
     m.add_parameters({S(p): v for p, v in pars.items()})
+    m.add_derived(
+        "chl_ref",
+        fn=k.chl_content,
+        args=["chl_per_od", "M_chl", "cells_per_od", "cell_volume"],
+    )
 
     def rxn(name: str, fn, args: list[str], stoich: dict[str, float]) -> None:
         m.add_reaction(
@@ -212,7 +228,7 @@ def get_model(
         m.add_derived(S(name), fn=fn, args=args)
     for c in ("ATP", "NADPH", "3PGA", "Fdred"):
         m.add_derived(S(f"v{c}_prod"), fn=clip_zero, args=[S(f"v{c}_prod_raw")])
-        rxn(f"{c} production", k.unit_conversion, [f"v{c}_prod", "cell_volume"], {c: 1})
+        rxn(f"{c} production", k.petc_supply, [f"v{c}_prod", "chl_ref"], {c: 1})
 
     m.add_derived("G3P", fn=k.fraction_PGA_derivates_G3P, args=[S("3PGA")])
     m.add_derived("PYR", fn=k.fraction_PGA_derivates_PYR, args=[S("3PGA")])
@@ -221,12 +237,12 @@ def get_model(
         rxn(f"{c}_out_metabolism", k.mass_action_1, [c, f"{c}_out_metabolism"], {c: -1})
 
     costs = inp.enzyme_costs
-    sf = 1e-4
     cofactors = ("NADPH", "ATP", "Fdred", "3PGA")
 
     def synth_stoich(enzyme: str) -> dict[str, float]:
-        st = {c: sf * -float(costs.loc[enzyme, c]) for c in cofactors}  # type: ignore[arg-type]
-        return st | {enzyme: sf * 1000}
+        y = ENZYME_SYNTHESIS_YIELD
+        st = {c: -y * float(costs.loc[enzyme, c]) for c in cofactors}  # type: ignore[arg-type]
+        return st | {enzyme: y}
 
     synth_args = ["ATP", "NADPH", "Fdred", "3PGA"]
     for enzyme in costs.index.delete(0):
