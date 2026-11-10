@@ -204,7 +204,18 @@ def reference_parameters(ref: Reference = REFERENCE) -> dict[str, float]:
     }
 
 
-def get_model(ref: Reference = REFERENCE) -> Model:
+def growth_coupled(e: float, mu: float, mu_ref: float, c: float) -> float:
+    """Enzyme activity scaled with growth, (mu / mu_ref)^c (c = 0: constitutive)."""
+    return e * (mu / mu_ref) ** c
+
+
+def get_model(ref: Reference = REFERENCE, pigment_coupling: float = 0.0) -> Model:
+    """Metabolism layer.
+
+    `pigment_coupling` c > 0 scales the pigment-branch enzymes (CrtB, ChlP/ChlG) with
+    growth, (mu / mu_ref)^c, so pigment synthesis tracks growth as Chl synthesis does
+    in the paper's turbidostat data (pigment regulation variant A, ADR 0004).
+    """
     m = Model()
     m.add_variables(dict(ref.pools))
     m.add_parameters(
@@ -230,6 +241,13 @@ def get_model(ref: Reference = REFERENCE) -> Model:
         stoichiometry={s: -BIOMASS[s] for s in BIOMASS},
     )
     m.add_derived("mu", fn=growth_rate, args=[*bio_args, "rho_DW"])
+    m.add_parameters({"mu_ref": ref.mu, "pigment_coupling": pigment_coupling})
+    for e in ("CrtB", "Chl"):
+        m.add_derived(
+            f"E_{e}_eff",
+            fn=growth_coupled,
+            args=[f"E_{e}", "mu", "mu_ref", "pigment_coupling"],
+        )
     m.add_reaction(
         "v_dxs",
         fn=v_dxs,
@@ -267,13 +285,13 @@ def get_model(ref: Reference = REFERENCE) -> Model:
     m.add_reaction(
         "v_car",
         fn=v_mm1,
-        args=["GGPP", "E_CrtB", "V_CrtB", "Km_CrtB_GGPP"],
+        args=["GGPP", "E_CrtB_eff", "V_CrtB", "Km_CrtB_GGPP"],
         stoichiometry={"GGPP": -2},
     )
     m.add_reaction(
         "v_chl",
         fn=v_mm2,
-        args=["GGPP", "NADPH", "E_Chl", "V_Chl", "Km_Chl_GGPP", "Km_Chl_NADPH"],
+        args=["GGPP", "NADPH", "E_Chl_eff", "V_Chl", "Km_Chl_GGPP", "Km_Chl_NADPH"],
         stoichiometry={"GGPP": -1, "NADPH": -3},  # ChlG + ChlP (3 NADPH)
     )
     for name, pool, k in (

@@ -109,11 +109,18 @@ literature.
 - Native's steady-state search fails for very slowly relaxing states where Sundials
   converges; `runners.steady_state_scan` retries failures with Sundials.
 
-### 2.7 Fit status
-Two fitted parameters (`petc_scale` 5.48, `pbs_scale` 1.26): μ RMSE 0.013 h^-1, ln N
-RMSE 0.23. The acclimation rise and the peak are reproduced; growth collapses after
-~50 h because the PETC is evaluated at the depth-averaged light (see the report for the
-proposed depth-resolved PETC and pigment regulation).
+### 2.7 Depth resolution, pigment regulation, fit status
+- **Depth-resolved PETC** (5 Gauss–Legendre nodes, ≤ 2 % quadrature error up to optical
+  depth 20) on a **5 nm** wavelength grid (median 3e-4 change in absorbed light). Below
+  the PETC training domain all four inputs are scaled up together to its edge and the
+  outputs interpolated linearly to zero (pfennig2024 can't be integrated in complete
+  darkness; at 1 % light its supply is ~0).
+- **Pigment regulation, two variants** (`g_growth.get_model(pigment_regulation=...)`):
+  A (`coupled`): CrtB and ChlP/ChlG activity ∝ (μ/μ_ref)^c, c = 1, own metabolism
+  surrogate; B (`photoacclimation`): Chl*, Car* = X_ref (1+a)/(1+a L_rel), a fitted.
+  B fits best (μ RMSE 0.0097 h^-1, ln N 0.156) with a ≈ 0, i.e. constant pigment
+  contents. Neither reproduces the initial growth rise → capacity acclimation is the
+  candidate mechanism (report: `docs/reports/g-thread.md`).
 
 ## 3. Rationale
 - QSS at each timescale boundary is physically justified (s → min → h) and keeps the

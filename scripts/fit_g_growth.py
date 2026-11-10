@@ -27,7 +27,11 @@ from synmep.models.g_growth import get_model
 from synmep.runners import NATIVE
 
 warnings.filterwarnings("ignore")
-FIT = ("petc_scale", "pbs_scale")
+FIT_BY_VARIANT = {
+    "none": ("petc_scale", "pbs_scale"),
+    "coupled": ("petc_scale", "pbs_scale"),
+    "photoacclimation": ("petc_scale", "pbs_scale", "acclimation_a"),
+}
 SIGMA_MU = 0.005  # [h^-1]
 SIGMA_LN_N = 0.05
 
@@ -38,43 +42,62 @@ def simulate(
     for m in (ms, md):
         m.update_parameters(pars)
     y0 = ms.get_initial_conditions() | {"N": n_pre}
-    ss = (
-        Simulator(ms, y0=y0, integrator=NATIVE)
-        .simulate_to_steady_state(oscillation_detector=None)
-        .get_result()
-    )
+    # steady mode relaxes every state at k_relax = 1 min^-1, so one long time course
+    # reaches the fixed point; Native's steady-state search needed its full 1000
+    # iterations here (~16 s per evaluation)
+    ss = Simulator(ms, y0=y0, integrator=NATIVE).simulate(1e4).get_result()
     if not hasattr(ss.value, "variables"):
         return None
-    y0 = ss.value.variables.iloc[-1][ms.get_variable_names()].to_dict() | {"N": n0}
+    y0 = ss.value.variables.iloc[-1][ms.get_variable_names()].to_dict()
+    rhs = ms.get_right_hand_side(y0).to_numpy()
+    scale = np.abs(np.array(list(y0.values()))) + 1e-9
+    if np.max(np.abs(rhs) / scale) > 1e-6:
+        return None
+    y0 |= {"N": n0}
     tc = Simulator(md, y0=y0, integrator=NATIVE).simulate_time_course(t).get_result()
     return tc.value.get_args() if hasattr(tc.value, "variables") else None
 
 
 def main() -> None:
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--pigment-regulation",
+        default="none",
+        choices=list(FIT_BY_VARIANT),
+    )
+    variant = parser.parse_args().pigment_regulation
+    fit_names = FIT_BY_VARIANT[variant]
+    suffix = "" if variant == "none" else f"-{variant}"
     inp = load_legacy_inputs()
     data = inp.exp_growth_rate_by_density
     t = np.linspace(0, 96 * 60, len(data))
-    ms, md = get_model(inp, "steady"), get_model(inp, "dynamic")
+    ms = get_model(inp, "steady", pigment_regulation=variant)
+    md = get_model(inp, "dynamic", pigment_regulation=variant)
     n0, n_pre = float(data.index[0]), float(data.index[24])
 
     def residuals(logp: np.ndarray) -> np.ndarray:
-        res = simulate(ms, md, dict(zip(FIT, np.exp(logp), strict=True)), n_pre, n0, t)
+        res = simulate(
+            ms, md, dict(zip(fit_names, np.exp(logp), strict=True)), n_pre, n0, t
+        )
         if res is None or len(res) != len(t):
             return np.full(2 * len(t), 1e3)
         r_mu = (res["mu"].to_numpy() * 60 - data.to_numpy()) / SIGMA_MU
         r_n = (np.log(res["N"].to_numpy()) - np.log(data.index.to_numpy())) / SIGMA_LN_N
         return np.concatenate([r_mu, r_n])
 
-    x0 = np.zeros(len(FIT))
+    x0 = np.zeros(len(fit_names))
     t0 = time.perf_counter()
     cost0 = 0.5 * np.sum(residuals(x0) ** 2)
     fit = least_squares(residuals, x0, x_scale=1.0, diff_step=1e-3, max_nfev=200)
     wall = time.perf_counter() - t0
-    best = dict(zip(FIT, np.exp(fit.x), strict=True))
+    best = dict(zip(fit_names, np.exp(fit.x), strict=True))
     res = simulate(ms, md, best, n_pre, n0, t)
     assert res is not None
     mu_sim = res["mu"].to_numpy() * 60
     report = {
+        "variant": variant,
         "fitted": best,
         "cost_initial": float(cost0),
         "cost_final": float(fit.cost),
@@ -95,7 +118,7 @@ def main() -> None:
             "SQ": res["SQ"].tolist(),
         },
     }
-    Path("docs/reports/g-fit.json").write_text(json.dumps(report, indent=1))
+    Path(f"docs/reports/g-fit{suffix}.json").write_text(json.dumps(report, indent=1))
     print(json.dumps({k: v for k, v in report.items() if k != "trajectory"}, indent=1))
 
 

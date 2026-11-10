@@ -69,3 +69,9 @@ for the minimal model.
 - Global polynomials hit their limits at limitation switches (p95 errors 15–20 % even
   in 3D). → For the minimal model, prefer closed-form saturating functions with few
   parameters over polynomial surrogates.
+- **Constant pigment contents fit the batch data best** (variant B fitted acclimation
+  strength → 0). → The minimal model can drop pigment dynamics entirely (Chl, Car as
+  parameters), keeping only self-shading through cell density.
+- **The early growth rise is not explained by pigments.** → If the minimal model must
+  capture it, it needs a slow photosynthetic-capacity state, not pigment states.
+- **Depth resolution matters more than PETC detail**: it removed a 5x supply factor.

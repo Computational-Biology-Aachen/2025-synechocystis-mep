@@ -34,6 +34,11 @@ from synmep.surrogates.poly import expressions
 
 CELL_VOLUME = 4e-15  # [L cell^-1] (paper, ADR 0004)
 GrowthMode = Literal["steady", "dynamic"]
+# ADR 0004: "coupled" = variant A (pigment-branch enzymes scale with growth, separate
+# metabolism surrogate); "photoacclimation" = variant B (pigment targets set by
+# absorbed light per Chl, squalene from the metabolism layer)
+PigmentRegulation = Literal["none", "coupled", "photoacclimation"]
+L_REF = 72.47  # [µmol(photons) mmol(Chl)^-1 s^-1] PS1 absorption at the Fig 9 median
 
 
 def _load(name: str) -> dict:
@@ -63,12 +68,24 @@ def get_model(
     petc_poly: dict | None = None,
     metabolism_poly: dict | None = None,
     depth_nodes: int = 5,
+    pigment_regulation: PigmentRegulation = "none",
+    spectral_step: int = 5,
 ) -> Model:
-    """Growth model; `depth_nodes` = 0 evaluates the PETC at the depth-averaged light."""
+    """Growth model.
+
+    `depth_nodes` = 0 evaluates the PETC at the depth-averaged light. `spectral_step`
+    [nm] coarsens the wavelength grid of the light model: 5 nm changes the absorbed
+    light by a median 3e-4 (max 6.5 %, only in very dark culture layers) and makes the
+    model ~5x smaller than at 1 nm (ADR 0004).
+    """
     petc_poly = _load("petc_poly.json") if petc_poly is None else petc_poly
-    metabolism_poly = (
-        _load("metabolism_poly.json") if metabolism_poly is None else metabolism_poly
-    )
+    if metabolism_poly is None:
+        name = (
+            "metabolism_poly_pc1.json"
+            if pigment_regulation == "coupled"
+            else ("metabolism_poly.json")
+        )
+        metabolism_poly = _load(name)
     m = Model()
     m.add_variables(
         {
@@ -93,6 +110,11 @@ def get_model(
             "petc_scale": 1.0,  # [-] fitted: efficiency of the PETC supply
             "S_PGA_floor": 1e-3,  # [mM min^-1] net respiration at very low light
             "E_CrtE": 1.0,  # [-] CrtE level relative to WT (Fig 11 knock-down)
+            # variant B: X* = X_ref (1 + a) / (1 + a L_rel), a fitted
+            "acclimation_a": 1.0,
+            "L_ref": L_REF,
+            "Chl_ref": REFERENCE.chl,
+            "Car_ref": REFERENCE.carotenoids,
         }
     )
     m.add_derived("N_nL", fn=per_nl, args=["N"])
@@ -122,7 +144,7 @@ def get_model(
     exprs: dict[str, sp.Expr] = {}
     if depth_nodes == 0:
         # PETC at the depth-averaged light (legacy)
-        exprs |= light_expressions(inp, symbols)
+        exprs |= light_expressions(inp, symbols, step=spectral_step)
         exprs |= expressions(
             petc_poly, {i: sp.Symbol(names[i]) for i in petc_poly["inputs"]}
         )
@@ -130,18 +152,38 @@ def get_model(
         # PETC at the local light of Gauss-Legendre depth nodes, outputs averaged:
         # the PETC is nonlinear, so the mean of the rates != the rate at the mean light
         nodes, weights = np.polynomial.legendre.leggauss(depth_nodes)
+        i_ps1 = petc_poly["inputs"].index("absorption_ps1")
+        a1_min = float(np.exp(petc_poly["log_lo"][i_ps1]))
         j = {"J_3PGA": [], "J_ATP": []}
         for i, (x, w) in enumerate(zip(nodes, weights, strict=True)):
             pre = f"z{i}_"
             exprs[f"{pre}depth"] = float((x + 1) / 2) * sp.Symbol("sample_depth_m")
-            exprs |= light_expressions(inp, symbols, depth=f"{pre}depth", prefix=pre)
+            exprs |= light_expressions(
+                inp, symbols, depth=f"{pre}depth", prefix=pre, step=spectral_step
+            )
+            # Below the training domain (dark culture layers) all inputs are scaled up
+            # together to its edge (ratios stay on the training manifold) and the
+            # outputs are interpolated linearly to zero supply in darkness, instead of
+            # clamping each input separately (off-manifold, spurious supply).
+            a_ps1 = sp.Symbol(pre + names["absorption_ps1"])
+            exprs[pre + "light_rel"] = a_ps1 / a1_min
+            rel = sp.Symbol(pre + "light_rel")
+            up = sp.Max(1, 1 / rel)
             local = expressions(
-                petc_poly, {k: sp.Symbol(pre + v) for k, v in names.items()}
+                petc_poly, {k: sp.Symbol(pre + v) * up for k, v in names.items()}
             )
             for out, expr in local.items():
-                exprs[pre + out] = expr
+                exprs[pre + out] = expr * sp.Min(1, rel)
                 j[out].append(float(w / 2) * sp.Symbol(pre + out))
         exprs |= {out: sp.Add(*terms) for out, terms in j.items()}
+        exprs["complex_abs_ps1_mean"] = sp.Add(
+            *(
+                float(w / 2) * sp.Symbol(f"z{i}_complex_abs_ps1")
+                for i, w in enumerate(weights)
+            )
+        )
+    if depth_nodes == 0:
+        exprs["complex_abs_ps1_mean"] = sp.Symbol("complex_abs_ps1")
     chl, scale = sp.Symbol("Chl"), sp.Symbol("petc_scale")
     exprs["S_PGA"] = sp.Max(
         sp.Symbol("J_3PGA") * chl * 0.06 * scale, sp.Symbol("S_PGA_floor")
@@ -150,6 +192,13 @@ def get_model(
     exprs |= expressions(
         metabolism_poly, {i: sp.Symbol(i) for i in metabolism_poly["inputs"]}
     )
+    targets = {s: sp.Symbol(f"{s}_star") for s in ("Chl", "Car", "SQ")}
+    if pigment_regulation == "photoacclimation":
+        exprs["L_rel"] = sp.Symbol("complex_abs_ps1_mean") / sp.Symbol("L_ref")
+        a, l_rel = sp.Symbol("acclimation_a"), sp.Symbol("L_rel")
+        for s in ("Chl", "Car"):
+            exprs[f"{s}_target"] = sp.Symbol(f"{s}_ref") * (1 + a) / (1 + a * l_rel)
+            targets[s] = sp.Symbol(f"{s}_target")
     for name, expr in exprs.items():
         fn, args = expr_fn(expr, origin=name)
         m.add_derived(name, fn=fn, args=args)
@@ -166,7 +215,7 @@ def get_model(
         m.add_reaction(
             f"net_{state}",
             fn=relaxation,
-            args=[state, f"{state}_star", rate],
+            args=[state, str(targets[state]), rate],
             stoichiometry={state: 1},
         )
     return m

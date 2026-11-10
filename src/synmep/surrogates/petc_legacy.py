@@ -64,6 +64,7 @@ def light_expressions(
     *,
     depth: str | None = None,
     prefix: str = "",
+    step: int = 1,
 ) -> dict[str, sp.Expr]:
     """Expressions for the self-shading light model and the absorbed light per complex.
 
@@ -78,10 +79,12 @@ def light_expressions(
     `light_ocp` and the photoactive pigment contents `pigment_*` [mg mg(Chl)^-1].
     """
     S = {k: sp.Symbol(v) for k, v in s.__dict__.items()}
-    w = simpson_weights(len(inp.light_spectrum))
-    a = {p: inp.abs_coef[p].to_numpy() for p in PIGMENTS}
-    spectrum = inp.light_spectrum.to_numpy()
-    ocp = inp.ocp_absorption.to_numpy()
+    # `step` [nm] subsamples the 1 nm spectra (Simpson needs an odd point count)
+    sl = slice(None, None, step)
+    spectrum = inp.light_spectrum.to_numpy()[sl]
+    w = simpson_weights(len(spectrum)) * step
+    a = {p: inp.abs_coef[p].to_numpy()[sl] for p in PIGMENTS}
+    ocp = inp.ocp_absorption.to_numpy()[sl]
     out: dict[str, sp.Expr] = {}
 
     def define(name: str, expr: sp.Expr) -> sp.Symbol:
@@ -209,6 +212,7 @@ def evaluate_light(
     parameters: dict[str, float],
     outputs: tuple[str, ...] = ("complex_abs_ps1", "complex_abs_ps2", "complex_abs_pbs",
                                 "light_ocp"),
+    step: int = 1,
 ) -> pd.DataFrame:  # fmt: skip
     """Vectorised evaluation of `light_expressions` for many states at once.
 
@@ -221,6 +225,7 @@ def evaluate_light(
         inp,
         Symbols(**{f: f for f in Symbols.__dataclass_fields__}),
         depth="z" if "z" in states else None,
+        step=step,
     )
     env: dict[str, np.ndarray | float] = {c: states[c].to_numpy(float) for c in states}
     env |= {k: v for k, v in parameters.items() if k not in env}

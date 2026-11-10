@@ -1,6 +1,8 @@
 """Train the metabolism QSS surrogate from the g_metabolism ODE model (ADR 0004).
 
-    uv run python scripts/train_metabolism_surrogate.py
+    uv run python scripts/train_metabolism_surrogate.py [--pigment-coupling C]
+
+With C > 0 (pigment regulation variant A) the outputs go to *_pc<C>.json.
 
 Supply inputs are *physically produced* pairs: (J_3PGA, J_ATP, Chl) triples from the
 PETC training data (culture states pushed through the light model and pfennig2024)
@@ -64,11 +66,17 @@ def sample(n: int, rng: np.random.Generator) -> pd.DataFrame:
 
 
 def main() -> None:
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--pigment-coupling", type=float, default=0.0)
+    coupling = parser.parse_args().pigment_coupling
+    suffix = f"_pc{coupling:g}" if coupling else ""
     OUT.mkdir(parents=True, exist_ok=True)
     rng = np.random.default_rng(SEED)
     x = sample(N_SAMPLES, rng)
     t = time.perf_counter()
-    args, fluxes = steady_state_scan(get_model(), x)
+    args, fluxes = steady_state_scan(get_model(pigment_coupling=coupling), x)
     wall = time.perf_counter() - t
     mu = args["mu"]
     y = pd.DataFrame(
@@ -80,7 +88,7 @@ def main() -> None:
         }
     )
     data = pd.concat([x, y], axis=1)
-    data.to_csv(OUT / "metabolism_training.csv", index=False)
+    data.to_csv(OUT / f"metabolism_training{suffix}.csv", index=False)
     ok = data.notna().all(axis=1) & (data[list(SURROGATE_OUTPUTS)] > 0).all(axis=1)
     data = data[ok].reset_index(drop=True)
 
@@ -112,8 +120,8 @@ def main() -> None:
             best = (worst, degree, poly)
     assert best is not None
     report["chosen_degree"] = best[1]
-    (OUT / "metabolism_poly.json").write_text(json.dumps(best[2], indent=1))
-    Path("docs/reports/metabolism-surrogate.json").write_text(
+    (OUT / f"metabolism_poly{suffix}.json").write_text(json.dumps(best[2], indent=1))
+    Path(f"docs/reports/metabolism-surrogate{suffix}.json").write_text(
         json.dumps(report, indent=1)
     )
     print(json.dumps(report, indent=1))
