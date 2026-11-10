@@ -1,8 +1,14 @@
 """v1: v0 with the ADR 0002 bugs fixed, one commit per fix (fix log: ADR 0002 §5).
 
-Reproduces `model.get_model` + `main.ipynb:get_parameterised_model` 1:1, including
-the bugs listed in ADR 0002. Names are sanitised to valid identifiers (`sanitise`) and every reaction is prefixed with `v_`, because the legacy model reuses
-names across compounds, parameters and reactions (e.g. `DXS`, `3PGA_out_metabolism`).
+Same structure and names as v0 (sanitised identifiers, reactions prefixed with `v_`),
+with: DXS monomerisation as in the paper (B4), corrected Sqs mass-action ratio (B5),
+µM-based kinetic defaults (B6), no 0/0 in ordered rate laws (B7), minimal kcats from
+content·ln2/T_d (B10), one unit system mM/min (B8), 4 fL cells (B9), PETC supply
+converted with the dynamic Chl (B2), the retrained domain-clamped PETC surrogate (B1)
+and a biomass drain μ·ρ_DW with the paper's composition (B3). Inputs come from
+`synmep.data_v1.load_inputs` (re-exported as `load_inputs`).
+
+Not recalibrated: the legacy parameter set was tuned around the bugs (ADR 0002 §5).
 """
 
 from __future__ import annotations
