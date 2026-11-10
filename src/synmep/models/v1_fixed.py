@@ -23,6 +23,8 @@ from synmep.surrogates.poly import expressions as poly_expressions
 __all__ = ["get_model", "load_inputs"]
 
 UM_TO_MM = 1e-3
+# [mmol gDW^-1] (paper Tab. biomass_stoichiometry, Knoop2013)
+BIOMASS_STOICHIOMETRY = {"3PGA": 6.934, "ATP": 0.774, "NADPH": 2.924, "Fdred": 2.300}
 PETC_POLY = DATA / "surrogates" / "petc_poly.json"
 # enzyme made per unit of synthesis rate; the legacy stoichiometry was sf * 1000 µM =
 # 0.1 µM per µM min^-1 of `ksynth`-limited rate, and cofactors 1e-4 x cost [mM], i.e.
@@ -89,6 +91,11 @@ def legacy_parameters(
         # PETC supply ratios (paper Tab. biomass_stoichiometry): NADPH, Fd per 3PGA
         "r_NADPH_PGA": 2.924 / 6.934,
         "r_Fd_PGA": 2.300 / 6.934,
+        # dry weight per cell volume: 3.88 pg DW cell^-1 (proteomics samples) / 4 fL.
+        # 0.97 g mL^-1 is ~3x physiological dry-mass density: cells-per-OD, volume or
+        # dry weights in the repo don't fully agree (ADR 0004 §2.6)
+        "rho_DW": 970.0,  # [gDW L(cell)^-1]
+        "Km_biomass": 0.1,  # [mM] precursor saturation of biomass synthesis (assumption)
         # empirical growth law slope per cell (legacy constant, paper Results)
         "chl_growth_slope": 39566524308958.01,  # [cells mmol(Chl)^-1]
     }
@@ -198,16 +205,23 @@ def get_model(
     for c in sorted(COMPOUNDS):
         rxn(f"{c}_out", k.mass_action_1, [c, "Growth_rate"], {c: -1})
 
+    # B3: biomass synthesis [gDW L^-1 min^-1] = mu x rho_DW draws the paper's biomass
+    # composition fluxes [mmol gDW^-1]; legacy: GSM numbers divided by 60, no rho_DW
     rxn(
         "Biomass",
-        k.growth_function,
-        ["Chla_synthesis", "cell_volume", "chl_growth_slope"],
-        {
-            "NADPH": -8.762903549999999 / 60,
-            "ATP": -33.0939284280016 / 60,
-            "Fdred": -25.97602870400234 / 60,
-            "3PGA": -78.47848943300428 / 60,
-        },
+        k.biomass_rate,
+        [
+            "Chla_synthesis",
+            "cell_volume",
+            "chl_growth_slope",
+            "rho_DW",
+            "3PGA",
+            "ATP",
+            "NADPH",
+            "Fdred",
+            "Km_biomass",
+        ],
+        {c: -v for c, v in BIOMASS_STOICHIOMETRY.items()},
     )
 
     # self-shading light model -> absorbed light per complex (explicit expressions)

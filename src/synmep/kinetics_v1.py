@@ -196,6 +196,28 @@ def growth_function(chl_synthesis, cell_volume, slope) -> float:
     return slope * chl_synthesis * cell_volume
 
 
+def biomass_rate(
+    chl_synthesis, cell_volume, slope, rho_dw, pga, atp, nadph, fdred, km
+) -> float:
+    """[gDW L^-1 min^-1] = mu x rho_DW, saturable in the four precursors.
+
+    The empirical growth law sets mu from Chl synthesis alone; without the saturation
+    terms the (correctly sized) drain drives the precursor pools negative (ADR 0002 §5).
+    """
+    mu = growth_function(chl_synthesis, cell_volume, slope)
+    sat = (
+        pga
+        / (km + pga)
+        * atp
+        / (km + atp)
+        * nadph
+        / (km + nadph)
+        * fdred
+        / (km + fdred)
+    )
+    return mu * rho_dw * sat
+
+
 def fraction_PGA_derivates_G3P(PGA):
     return PGA * 0.027
 

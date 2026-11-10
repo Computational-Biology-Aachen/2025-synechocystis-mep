@@ -124,6 +124,7 @@ first data point, 80 µE, 13.5 mm, 96 h, RMSE vs. `growth_rates_by_density.csv`.
 | B9 cell volume 4 fL | 0.0114 | 6.32 | 0.103 | 0.0151 | 0.847 |
 | B2 supply with dynamic Chl | 0.0046 | 6.32 | 0.049 | 0.0149 | 0.371 |
 | B1 retrained PETC surrogate | 0.0100 | 6.32 | 0.103 | 0.0126 | 0.336 |
+| B3 biomass drain μ·ρ_DW | 0.0081 | 6.32 | 0.088 | 0.0195 | 0.899 |
 
 - **B4** — `DXS_na` now follows the paper: k_na (E_t − E_a), E_a = free (no IPP/DMAPP)
   *and* ThiDP-bound DXS, in consistent units. A unit-only fix (E_t − 1000·E_f) made
@@ -172,3 +173,12 @@ first data point, 80 µE, 13.5 mm, 96 h, RMSE vs. `growth_rates_by_density.csv`.
   J_3PGA with the paper's biomass ratios (2.924 and 2.300 per 6.934 3PGA); net
   respiration (J_3PGA < 0) isn't drawn from the 3PGA pool. ss growth ×2.2; Fig 9 final
   density now overshoots (1.8e9 vs. 9.6e8 cells mL^-1).
+- **B3** — biomass synthesis [gDW L^-1 min^-1] = μ·ρ_DW (ρ_DW = 970 g L^-1: 3.88 pg DW
+  cell^-1 at 4 fL; ~3× physiological, see ADR 0004 §2.6) drawing the paper's biomass
+  composition (3PGA 6.934, ATP 0.774, NADPH 2.924, Fd 2.300 mmol gDW^-1) instead of
+  GSM numbers / 60. The drain is ~10^4× larger than before. Because the empirical growth
+  law sets μ from Chl synthesis alone, the drain had to become saturable in its four
+  precursors (Km 0.1 mM, assumption); otherwise 3PGA, NADPH and DXP turned negative
+  within a minute. With it, low precursors slow Chl synthesis, μ and the drain (a
+  feedback the legacy model lacked). Cofactors are now growth-coupled; Fig 9 growth is
+  resource-limited and undershoots (3.9e8 vs. 9.6e8 cells mL^-1 at 96 h).
