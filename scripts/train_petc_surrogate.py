@@ -15,15 +15,13 @@ from __future__ import annotations
 import json
 import time
 import warnings
-from functools import partial
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 from mxlpy import scan
-from mxlpy.integrators import Native
-from mxlpy.runners import KineticRunner
 
+from synmep.runners import NATIVE_RUNNER
 from synmep.petc.pfennig import LIGHT_INPUTS, OUTPUTS, get_petc_model, outputs
 from synmep.surrogates.poly import fit_polynomial, predict
 
@@ -62,7 +60,7 @@ def main() -> None:
         get_petc_model(),
         to_scan=x,
         parallel=False,  # the loky-parallel scan hung (ADR 0004); serial takes ~6 min
-        runner=KineticRunner(integrator=partial(Native, method="CVODE_BDF")),
+        runner=NATIVE_RUNNER,
     )
     wall = time.perf_counter() - t
     y = outputs(res.fluxes).reset_index(drop=True)

@@ -15,3 +15,4 @@ Reference documents (not ADRs, kept current):
 → [ADR 0001 — Rewrite plan, stages and model variants](0001-rewrite-plan-and-stages.md)
 → [ADR 0002 — Audit findings of the legacy model](0002-legacy-audit-findings.md)
 → [ADR 0003 — uv + mxlpy toolchain and a native-lowerable surrogate](0003-toolchain-and-native-lowerable-surrogate.md)
+→ [ADR 0004 — Ground-up three-timescale model (thread "g")](0004-ground-up-timescale-model.md)
