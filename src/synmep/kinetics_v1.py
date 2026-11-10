@@ -117,7 +117,7 @@ def reversible_ordered_2_comp1(A, B, P, A2, KcatF, Et, KmA, KmA2, KmB, KmP, KiA,
         A * B
         + KmA * (1 + A2 / KmA2) * B
         + KmB * A
-        + (KcatF * Et / 1000 / (KcatF * Et / 1000 * Keq) * (KmP + P * (1 + A / KiA)))
+        + (KmP + P * (1 + A / KiA)) / Keq  # B7: was kcat*Et/(kcat*Et*Keq), 0/0 at Et=0
     )
     return numerator / denominator
 
@@ -130,7 +130,7 @@ def reversible_ordered_2_comp2(
         A * B
         + KmA * (1 + A2 / KmA2 + A3 / KmA3) * B
         + KmB * A
-        + (KcatF * Et / 1000 / (KcatF * Et / 1000 * Keq) * (KmP + P * (1 + A / KiA)))
+        + (KmP + P * (1 + A / KiA)) / Keq  # B7: was kcat*Et/(kcat*Et*Keq), 0/0 at Et=0
     )
     return numerator / denominator
 
