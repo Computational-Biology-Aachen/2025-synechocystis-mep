@@ -3,8 +3,9 @@
 Slow states: cell density `N` [cells mL^-1], chlorophyll `Chl`, carotenoids `Car` and
 squalene `SQ` [mM, intracellular]. Faster layers enter as QSS surrogates:
 
-    N, Chl, Car --self-shading--> absorbed light per complex
-                --PETC surrogate--> J_3PGA, J_ATP  [mmol mol(Chl)^-1 s^-1]
+    N, Chl, Car --self-shading--> absorbed light per complex at 5 depths
+                --PETC surrogate, averaged over depth--> J_3PGA, J_ATP
+                                                  [mmol mol(Chl)^-1 s^-1]
                 × Chl × petc_scale --> S_PGA, S_ATP [mM min^-1]
                 --metabolism surrogate (+ E_CrtE)--> mu, X* (steady-state contents)
 
@@ -21,6 +22,7 @@ from __future__ import annotations
 import json
 from typing import Literal
 
+import numpy as np
 import sympy as sp
 from mxlpy import Model
 
@@ -60,7 +62,9 @@ def get_model(
     growth_mode: GrowthMode = "dynamic",
     petc_poly: dict | None = None,
     metabolism_poly: dict | None = None,
+    depth_nodes: int = 5,
 ) -> Model:
+    """Growth model; `depth_nodes` = 0 evaluates the PETC at the depth-averaged light."""
     petc_poly = _load("petc_poly.json") if petc_poly is None else petc_poly
     metabolism_poly = (
         _load("metabolism_poly.json") if metabolism_poly is None else metabolism_poly
@@ -97,20 +101,17 @@ def get_model(
         "allophycocyanin", fn=scaled, args=["allophycocyanin_ref", "pbs_scale"]
     )
 
-    exprs = light_expressions(
-        inp,
-        Symbols(
-            chl="Chl",
-            carotenoids="Car",
-            cell_density="N_nL",
-            light="light",
-            phycocyanin="phycocyanin",
-            allophycocyanin="allophycocyanin",
-            ps_ratio="ps_ratio",
-            beta_carotene_fraction="beta_carotene_fraction",
-            sample_depth="sample_depth_m",
-            cell_volume="cell_volume",
-        ),
+    symbols = Symbols(
+        chl="Chl",
+        carotenoids="Car",
+        cell_density="N_nL",
+        light="light",
+        phycocyanin="phycocyanin",
+        allophycocyanin="allophycocyanin",
+        ps_ratio="ps_ratio",
+        beta_carotene_fraction="beta_carotene_fraction",
+        sample_depth="sample_depth_m",
+        cell_volume="cell_volume",
     )
     names = {
         "absorption_ps1": "complex_abs_ps1",
@@ -118,12 +119,29 @@ def get_model(
         "absorption_pbs": "complex_abs_pbs",
         "light_OCP": "light_ocp",
     }
-    exprs |= {
-        k: v
-        for k, v in expressions(
+    exprs: dict[str, sp.Expr] = {}
+    if depth_nodes == 0:
+        # PETC at the depth-averaged light (legacy)
+        exprs |= light_expressions(inp, symbols)
+        exprs |= expressions(
             petc_poly, {i: sp.Symbol(names[i]) for i in petc_poly["inputs"]}
-        ).items()
-    }
+        )
+    else:
+        # PETC at the local light of Gauss-Legendre depth nodes, outputs averaged:
+        # the PETC is nonlinear, so the mean of the rates != the rate at the mean light
+        nodes, weights = np.polynomial.legendre.leggauss(depth_nodes)
+        j = {"J_3PGA": [], "J_ATP": []}
+        for i, (x, w) in enumerate(zip(nodes, weights, strict=True)):
+            pre = f"z{i}_"
+            exprs[f"{pre}depth"] = float((x + 1) / 2) * sp.Symbol("sample_depth_m")
+            exprs |= light_expressions(inp, symbols, depth=f"{pre}depth", prefix=pre)
+            local = expressions(
+                petc_poly, {k: sp.Symbol(pre + v) for k, v in names.items()}
+            )
+            for out, expr in local.items():
+                exprs[pre + out] = expr
+                j[out].append(float(w / 2) * sp.Symbol(pre + out))
+        exprs |= {out: sp.Add(*terms) for out, terms in j.items()}
     chl, scale = sp.Symbol("Chl"), sp.Symbol("petc_scale")
     exprs["S_PGA"] = sp.Max(
         sp.Symbol("J_3PGA") * chl * 0.06 * scale, sp.Symbol("S_PGA_floor")

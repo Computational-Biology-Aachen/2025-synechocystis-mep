@@ -3,8 +3,8 @@
     uv run --extra surrogate python scripts/train_petc_surrogate.py
 
 Training inputs are *physically realisable* absorbed-light combinations: culture states
-(cell density, Chl, carotenoids, light, sample depth) are sampled and pushed through
-the self-shading light model with the growth model's pigment parameters. Sampling the
+(cell density, Chl, carotenoids, light, sample depth, position in depth) are sampled
+and pushed through the self-shading light model (local light at that depth) with the growth model's pigment parameters. Sampling the
 four absorbed-light inputs independently left combinations the growth model produces
 (e.g. low PBS:PS1 at 4 fL) outside the training data, where the polynomial
 extrapolated to negative supply. pfennig2024 is solved to steady state with the native
@@ -66,6 +66,8 @@ def sample(n: int, rng: np.random.Generator) -> pd.DataFrame:
     )
     states["sample_depth"] = rng.uniform(*DEPTH_RANGE, n)
     states["pbs_scale"] = 10 ** rng.uniform(*np.log10(PBS_SCALE_RANGE), n)
+    # local light at a random depth (the growth model evaluates the PETC at depth nodes)
+    states["z"] = rng.uniform(0, 1, n) * states["sample_depth"]
     pars = light_parameters()
     states["phycocyanin"] = pars.pop("phycocyanin") * states["pbs_scale"]
     states["allophycocyanin"] = pars.pop("allophycocyanin") * states["pbs_scale"]

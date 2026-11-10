@@ -58,8 +58,19 @@ def petc_expressions(inp: LegacyInputs, s: Symbols) -> dict[str, sp.Expr]:
     return out
 
 
-def light_expressions(inp: LegacyInputs, s: Symbols) -> dict[str, sp.Expr]:
+def light_expressions(
+    inp: LegacyInputs,
+    s: Symbols,
+    *,
+    depth: str | None = None,
+    prefix: str = "",
+) -> dict[str, sp.Expr]:
     """Expressions for the self-shading light model and the absorbed light per complex.
+
+    By default the light is the depth average over the sample (legacy). With `depth`
+    (name of a depth [m]) it is the local light `I0 e^{-k z}` at that depth, for
+    depth-resolved PETC evaluation (ADR 0004). `prefix` namespaces all defined names,
+    so several depths can coexist in one model.
 
     Returned in dependency order; every entry may reference the names of earlier
     entries, so each becomes one (small) derived quantity. Ends with the absorbed
@@ -74,8 +85,8 @@ def light_expressions(inp: LegacyInputs, s: Symbols) -> dict[str, sp.Expr]:
     out: dict[str, sp.Expr] = {}
 
     def define(name: str, expr: sp.Expr) -> sp.Symbol:
-        out[name] = expr
-        return sp.Symbol(name)
+        out[prefix + name] = expr
+        return sp.Symbol(prefix + name)
 
     mg_chl = S["chl"] * 1000 * M_CHL / 1000  # [mg L^-1]
     content = {
@@ -107,12 +118,17 @@ def light_expressions(inp: LegacyInputs, s: Symbols) -> dict[str, sp.Expr]:
     )
     d = S["sample_depth"]
 
-    # depth-averaged light per wavelength, legacy form of I0 (1 - e^{-kd}) / (kd)
+    # light per wavelength: depth average, legacy form of I0 (1 - e^{-kd}) / (kd),
+    # or the local light I0 e^{-kz} at depth z
+    z = None if depth is None else sp.Symbol(depth)
     corrected = []
     for i in range(len(spectrum)):
         k = chl_sample * sp.Add(*(float(a[p][i]) * content[p] for p in PIGMENTS))
         i0 = float(spectrum[i]) * S["light"]
-        corrected.append(i0 * (sp.exp(-d * k) - 1) / (-k) / d)
+        if z is None:
+            corrected.append(i0 * (sp.exp(-d * k) - 1) / (-k) / d)
+        else:
+            corrected.append(i0 * sp.exp(-k * z))
 
     def integrate(per_wl: np.ndarray) -> sp.Expr:
         return sp.Add(
@@ -198,10 +214,13 @@ def evaluate_light(
 
     `states` and `parameters` together must provide every field of `Symbols` (the
     column/key names are the field names: chl, carotenoids, cell_density [cells nL^-1],
-    light, ...).
+    light, ...). With a `z` column, the local light at depth z [m] is used instead of
+    the depth average.
     """
     exprs = light_expressions(
-        inp, Symbols(**{f: f for f in Symbols.__dataclass_fields__})
+        inp,
+        Symbols(**{f: f for f in Symbols.__dataclass_fields__}),
+        depth="z" if "z" in states else None,
     )
     env: dict[str, np.ndarray | float] = {c: states[c].to_numpy(float) for c in states}
     env |= {k: v for k, v in parameters.items() if k not in env}
