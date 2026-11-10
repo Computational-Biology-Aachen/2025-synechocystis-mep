@@ -13,7 +13,7 @@ from mxlpy import Model
 
 from synmep import kinetics_legacy as k
 from synmep.data import CAROT, CELL_VOLUME, CHLA, SQUALENE, LegacyInputs
-from synmep.exprfn import expr_fn
+from synmep.exprfn import clip_zero, expr_fn
 from synmep.surrogates.petc_legacy import Symbols, petc_expressions
 
 Strain = Literal["wt", "dshc"]
@@ -204,15 +204,11 @@ def get_model(
             cell_volume="cell_volume",
         ),
     )
-    for name in (
-        "complex_abs_ps1", "complex_abs_ps2", "complex_abs_pbs", "light_ocp",
-        "pigment_phycocyanin", "pigment_allophycocyanin", "pigment_beta_carotene",
-    ):  # fmt: skip
-        fn, args = expr_fn(petc[name], origin=name)
-        m.add_derived(name, fn=fn, args=args)
+    for name, expr in petc.items():
+        fn, args = expr_fn(expr, origin=S(name))
+        m.add_derived(S(name), fn=fn, args=args)
     for c in ("ATP", "NADPH", "3PGA", "Fdred"):
-        fn, args = expr_fn(petc[f"v{c}_prod"], origin=f"v{c}_prod")
-        m.add_derived(S(f"v{c}_prod"), fn=fn, args=args)
+        m.add_derived(S(f"v{c}_prod"), fn=clip_zero, args=[S(f"v{c}_prod_raw")])
         rxn(f"{c} production", k.unit_conversion, [f"v{c}_prod", "cell_volume"], {c: 1})
 
     m.add_derived("G3P", fn=k.fraction_PGA_derivates_G3P, args=[S("3PGA")])

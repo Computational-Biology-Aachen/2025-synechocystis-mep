@@ -21,8 +21,8 @@ def test_polynomial_matches_sklearn(inputs):
     exprs = polynomial_expressions(poly, syms)
     df = pd.read_csv(REF)
     order = ["vATP_prod", "vNADPH_prod", "v3PGA_prod", "vFdred_prod"]
-    fns = [sp.lambdify([syms[n] for n in names], exprs[o]) for o in order]
+    fns = [sp.lambdify([syms[n] for n in names], exprs[f"{o}_raw"]) for o in order]
     for col, fn in zip(["ATP", "NADPH", "3PGA", "Fd_red"], fns, strict=True):
         got = np.array([fn(*row) for row in df[names].to_numpy()])
-        want = np.maximum(df[f"out_{col}"].to_numpy(), 0)
+        want = df[f"out_{col}"].to_numpy()
         np.testing.assert_allclose(got, want, rtol=1e-9, atol=1e-9 * np.abs(want).max())

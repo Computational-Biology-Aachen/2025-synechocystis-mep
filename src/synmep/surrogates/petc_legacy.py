@@ -43,39 +43,60 @@ def simpson_weights(n: int) -> np.ndarray:
 
 
 def petc_expressions(inp: LegacyInputs, s: Symbols) -> dict[str, sp.Expr]:
-    """Return expressions for the surrogate inputs and the four production rates.
+    """Expressions for the light model and the raw PETC surrogate outputs.
 
-    Keys: `complex_abs_ps1/ps2/pbs`, `light_ocp`, `pigment_*` (surrogate inputs) and
-    `vATP_prod`, `vNADPH_prod`, `v3PGA_prod`, `vFdred_prod`
-    [mmol mol(Chl)^-1 s^-1], clipped at zero as in the legacy scalar path.
+    Returned in dependency order; every entry may reference the names of earlier
+    entries, so each becomes one (small) derived quantity. Ends with the surrogate
+    inputs `complex_abs_ps1/ps2/pbs`, `light_ocp`, `pigment_*` and the unclipped
+    outputs `vATP_prod_raw`, `vNADPH_prod_raw`, `v3PGA_prod_raw`, `vFdred_prod_raw`
+    [mmol mol(Chl)^-1 s^-1]. The legacy scalar path clips them at zero; the model does
+    that with `synmep.exprfn.clip_zero`.
     """
     S = {k: sp.Symbol(v) for k, v in s.__dict__.items()}
     w = simpson_weights(len(inp.light_spectrum))
     a = {p: inp.abs_coef[p].to_numpy() for p in PIGMENTS}
     spectrum = inp.light_spectrum.to_numpy()
     ocp = inp.ocp_absorption.to_numpy()
+    out: dict[str, sp.Expr] = {}
 
-    chl_uM = S["chl"] * 1000
-    mg_chl = chl_uM * M_CHL / 1000  # [mg L^-1]
+    def define(name: str, expr: sp.Expr) -> sp.Symbol:
+        out[name] = expr
+        return sp.Symbol(name)
+
+    mg_chl = S["chl"] * 1000 * M_CHL / 1000  # [mg L^-1]
     content = {
         "chla": sp.Integer(1),
-        "beta_carotene": S["carotenoids"] * 1000 * M_CAROTENOIDS / 1000 / mg_chl,
-        "phycocyanin": S["phycocyanin"] / mg_chl,
-        "allophycocyanin": S["allophycocyanin"] / mg_chl,
+        "beta_carotene": define(
+            "petc_rel_carotenoids", S["carotenoids"] * M_CAROTENOIDS / mg_chl
+        ),
+        "phycocyanin": define("petc_rel_phycocyanin", S["phycocyanin"] / mg_chl),
+        "allophycocyanin": define(
+            "petc_rel_allophycocyanin", S["allophycocyanin"] / mg_chl
+        ),
     }
     photo = dict(content)
-    photo["beta_carotene"] = content["beta_carotene"] * S["beta_carotene_fraction"]
-
+    photo["beta_carotene"] = define(
+        "pigment_beta_carotene",
+        content["beta_carotene"] * S["beta_carotene_fraction"],
+    )
     # [mg(Chl) m^-3] chlorophyll in the sample
-    chl_sample = (
-        chl_uM * S["cell_volume"] * S["cell_density"] * 1e6 * 1e6 * 1e-3 * M_CHL
+    chl_sample = define(
+        "petc_chl_sample",
+        S["chl"]
+        * 1000
+        * S["cell_volume"]
+        * S["cell_density"]
+        * 1e6
+        * 1e6
+        * 1e-3
+        * M_CHL,
     )
     d = S["sample_depth"]
 
     # depth-averaged light per wavelength, legacy form of I0 (1 - e^{-kd}) / (kd)
     corrected = []
     for i in range(len(spectrum)):
-        k = chl_sample * sum(float(a[p][i]) * content[p] for p in PIGMENTS)
+        k = chl_sample * sp.Add(*(float(a[p][i]) * content[p] for p in PIGMENTS))
         i0 = float(spectrum[i]) * S["light"]
         corrected.append(i0 * (sp.exp(-d * k) - 1) / (-k) / d)
 
@@ -88,7 +109,9 @@ def petc_expressions(inp: LegacyInputs, s: Symbols) -> dict[str, sp.Expr]:
             )
         )
 
-    absorbed = {p: photo[p] * integrate(a[p]) for p in PIGMENTS}
+    absorbed = {
+        p: photo[p] * define(f"petc_int_{p}", integrate(a[p])) for p in PIGMENTS
+    }
 
     # pigment association (legacy `get_pigment_association`, stoichiometric method)
     pc = inp.ps_comp
@@ -107,21 +130,21 @@ def petc_expressions(inp: LegacyInputs, s: Symbols) -> dict[str, sp.Expr]:
     bc_measured = (
         photo["beta_carotene"] * float(mm["chla"]) / float(mm["beta_carotene"])
     )
-    bc_fac = sp.Min(bc_stoich / bc_measured, 1)
+    bc_fac = define("petc_bc_fac", sp.Min(bc_stoich / bc_measured, 1))
 
-    out: dict[str, sp.Expr] = {
-        "complex_abs_ps1": (
-            chla_ps1 * absorbed["chla"] + bc_ps1 * bc_fac * absorbed["beta_carotene"]
-        )
+    define(
+        "complex_abs_ps1",
+        (chla_ps1 * absorbed["chla"] + bc_ps1 * bc_fac * absorbed["beta_carotene"])
         * M_CHL,
-        "complex_abs_ps2": chla_ps2 * absorbed["chla"] * M_CHL,
-        "complex_abs_pbs": (absorbed["allophycocyanin"] + absorbed["phycocyanin"])
-        * M_CHL,
-        "light_ocp": integrate(ocp),
-        "pigment_phycocyanin": photo["phycocyanin"],
-        "pigment_allophycocyanin": photo["allophycocyanin"],
-        "pigment_beta_carotene": photo["beta_carotene"],
-    }
+    )
+    define("complex_abs_ps2", chla_ps2 * absorbed["chla"] * M_CHL)
+    define(
+        "complex_abs_pbs",
+        (absorbed["allophycocyanin"] + absorbed["phycocyanin"]) * M_CHL,
+    )
+    define("light_ocp", integrate(ocp))
+    define("pigment_phycocyanin", photo["phycocyanin"])
+    define("pigment_allophycocyanin", photo["allophycocyanin"])
     out |= polynomial_expressions(
         inp.surrogate_poly,
         {name: sp.Symbol(name) for name in inp.surrogate_poly["feature_names"]},
@@ -133,7 +156,7 @@ def polynomial_expressions(
     poly: dict[str, np.ndarray],
     inputs: dict[str, sp.Expr],
 ) -> dict[str, sp.Expr]:
-    """Explicit form of the legacy PolynomialFeatures → LinearRegression pipeline."""
+    """Explicit (unclipped) form of the legacy PolynomialFeatures → LinearRegression."""
     x = [inputs[str(n)] for n in poly["feature_names"]]
     monomials = [
         sp.Mul(*(xi ** int(p) for xi, p in zip(x, powers, strict=True) if p))
@@ -150,5 +173,5 @@ def polynomial_expressions(
                 if c != 0
             )
         )
-        res[names[str(out)]] = sp.Max(expr, 0)
+        res[f"{names[str(out)]}_raw"] = expr
     return res
