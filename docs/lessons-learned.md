@@ -87,3 +87,9 @@ for the minimal model.
   can't simply be parameters if the trade-off question is to be answered (contrast with
   the batch fit, which preferred constant pigments).
 - **Enzyme cost is missing in thread g** and would bound the optimum more tightly.
+- **MCA picks and culture productivity agree on the first 2–4 overexpressions, not on
+  when to stop**: later MCA picks reduce productivity at the productive high densities.
+  → Optimise strains against the culture objective directly (or use MCA only for the
+  ranking and the productivity scan for the stopping point).
+- **Best realistic thread-g strain: Sqs + CrtE (+ MEP chain, DXS)**, 0.4–0.65 mg/L/h,
+  about half the free squalene synthase optimum.

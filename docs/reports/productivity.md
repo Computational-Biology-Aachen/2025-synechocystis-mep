@@ -82,6 +82,41 @@ turbidostat (~1e9 cells mL^-1), giving ~1.2 mg L^-1 h^-1 in the mechanistic thre
 variants. The exact optimum position is model-dependent; its existence is not, as long as
 pigment synthesis feeds back on growth.
 
+## Best setting from the MCA overexpression sequence
+
+The squalene synthase scan above varies one enzyme freely. The MCA strain optimisation
+(`strain-optimisation.md`) instead proposes a *sequence* of realistic overexpressions
+(proteomics-based fold changes, each enzyme once). Here each strain of that sequence
+(round k = first k overexpressions) is evaluated for **culture productivity** over the
+same density scan (`productivity_analysis.py --strains` → `productivity-strains.json`).
+
+![strains](figures/productivity-strains.png)
+
+| variant | best strain | P max [mg/L/h] | at density [cells/mL] | μ [1/h] | P WT [mg/L/h] | gain | P after 1 OX |
+|:--|:--|--:|--:|--:|--:|--:|--:|
+| v0 | IspG, DXS, IspD, Sqs | 0.059 | 1.7e9 | 0.041 | 0.0071 | 8.2 | 0.0071 |
+| v1 | DXS, Sqs, CrtB | 0.027 | 1.7e9 | 0.011 | 0.0007 | 39 | 0.0058 |
+| g-none | Sqs, CrtE, MEP | 0.55 | 1.7e9 | 0.022 | 0.018 | 30 | 0.22 |
+| g-coupled | Sqs, CrtE, MEP, DXS | 0.58 | 1.7e9 | 0.014 | 0.065 | 8.9 | 0.37 |
+| g-photoacclimation | Sqs, CrtE | 0.41 | 5.3e8 | 0.031 | 0.085 | 4.9 | 0.41 |
+| g-capacity | Sqs, CrtE, MEP, DXS | 0.65 | 1.7e8 | 0.10 | 0.089 | 7.3 | 0.42 |
+
+- **More overexpressions isn't better.** In every variant culture productivity peaks
+  after 2–4 overexpressions and then *drops*: later MCA picks (CrtB, Chl, ChlP/ChlG,
+  …) were chosen for the summed squalene + biomass response at low density, but at the
+  productive high densities they cost growth or divert precursors. The MCA criterion and
+  the culture objective agree on the first steps, not on when to stop.
+- **Best strains:** thread g consistently says **Sqs + CrtE** (most of the gain), then
+  the MEP chain and DXS (the maximum in g-coupled and g-capacity); v0 says the legacy
+  IspG/DXS/IspD/Sqs set; v1 DXS/Sqs/CrtB. The best density shifts upward with the
+  overexpressions (5e8–1.7e9 cells mL^-1), except in g-capacity (1.7e8), where capacity
+  acclimation penalises shading.
+- **Realistic vs. free optimum:** with proteomics-based folds, thread g reaches
+  0.4–0.65 mg L^-1 h^-1, about half of the free squalene synthase optimum (1.2–1.3, at
+  100–460x WT Sqs, which no promoter delivers).
+- g-none (46/78 converged) and g-coupled (76/91) have gaps (white/broken lines): their
+  maxima are less reliable than those of v0/v1 and the fixed-pigment variants.
+
 ## Caveats
 
 - **No protein cost in thread g**: enzyme levels are free, so very high Sqs levels are
