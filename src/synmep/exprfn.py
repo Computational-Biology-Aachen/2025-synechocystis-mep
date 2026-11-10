@@ -10,14 +10,19 @@ Two workarounds for mxlpy 0.68 (ADR 0003):
 2. The parser rebuilds `a + b + c + ...` left-associatively, re-flattening a growing
    `Add` at every step (quadratic in the number of terms). Long top-level sums are
    therefore emitted as balanced binary trees.
+
+Generated sources are written to real files (named by content hash) instead of only
+`linecache`, so worker processes of parallel scans can read them too.
 """
 
 from __future__ import annotations
 
-import linecache
+import hashlib
 import math  # noqa: F401  (needed by the generated functions' module lookup)
 import re
+import tempfile
 import uuid
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import numpy  # noqa: F401
@@ -26,6 +31,10 @@ import sympy
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+
+
+_CACHE = Path(tempfile.gettempdir()) / "synmep-generated"
+_CACHE.mkdir(parents=True, exist_ok=True)
 
 
 def _code(expr: sympy.Expr) -> str:
@@ -48,13 +57,12 @@ def expr_fn(expr: sympy.Expr, origin: str) -> tuple[Callable[..., float], list[s
     else:
         body = _code(expr)
     src = f"def {name}({', '.join(args)}):\n    return {body}\n"
-    filename = f"<synmep-generated-{uuid.uuid4().hex}>"
-    linecache.cache[filename] = (
-        len(src),
-        None,
-        src.splitlines(keepends=True),
-        filename,
-    )
+    path = _CACHE / f"{hashlib.sha256(src.encode()).hexdigest()[:32]}.py"
+    if not path.exists():
+        tmp = path.with_suffix(f".{uuid.uuid4().hex}.tmp")
+        tmp.write_text(src)
+        tmp.replace(path)  # atomic, safe with concurrent processes
+    filename = str(path)
     namespace: dict[str, Any] = {}
     exec(compile(src, filename, "exec"), globals(), namespace)  # noqa: S102
     fn = namespace[name]
