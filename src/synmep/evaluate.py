@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 import pandas as pd
 from mxlpy import Simulator
+from mxlpy.integrators import Sundials
 
 from synmep.data import load_legacy_inputs
 from synmep.runners import NATIVE, NATIVE_RUNNER, SUNDIALS_RUNNER
@@ -64,6 +65,7 @@ class Adapter:
     # metabolism surrogates) instead of having them applied to parameters
     folds_in_build: tuple[str, ...] = ()
     time_per_min: float = 1.0  # model time units per minute (`full`: seconds -> 60)
+    chunk: int | None = None  # integrate batches in chunks of this many output steps
 
 
 def _row(res) -> pd.Series:
@@ -163,15 +165,10 @@ def batch(
     y0 = {k: float(pre[k]) for k in md.get_variable_names() if k in pre.index}
     y0[a.n_name] = float(data.index[0]) / a.n_unit
     t = np.linspace(0, hours * 60, n_points)  # [min]
-    tc = (
-        Simulator(md, y0=y0, integrator=NATIVE)
-        .simulate_time_course(t * a.time_per_min)
-        .get_result()
-    )
-    if not hasattr(tc.value, "variables"):
+    res = _time_course(md, y0, t * a.time_per_min, a.chunk)
+    if res is None:
         return None
-    args = tc.value.get_args(include_derived_parameters=True)
-    fl = tc.value.fluxes
+    args, fl = res
     both = pd.concat([args, fl.loc[:, ~fl.columns.isin(args.columns)]], axis=1)
     n = both[a.n_name].to_numpy() * a.n_unit  # [cells mL^-1]
     sq = both[a.keys["sq"]].to_numpy()  # [mM in the cell]
@@ -192,6 +189,61 @@ def batch(
         "best_productivity_mg_L_h": float(prod[best]),
         "titer_end_mg_L": float(titer[-1] - titer[0]),
     }
+
+
+def _time_course(
+    m: Model, y0: dict[str, float], t: np.ndarray, chunk: int | None = None
+) -> tuple[pd.DataFrame, pd.DataFrame] | None:
+    """Args and fluxes at times t. If one integration over t fails (stiff transients,
+    e.g. `full`), the time span is halved recursively from the last good state; single
+    intervals get a Sundials retry."""
+    names = m.get_variable_names()
+
+    def run(y: dict[str, float], ts: np.ndarray):
+        integrators = (NATIVE,) if len(ts) > 2 else (NATIVE, Sundials)
+        for integ in integrators:
+            tc = (
+                Simulator(m, y0=y, integrator=integ)
+                .simulate_time_course(ts - ts[0])
+                .get_result()
+            )
+            if hasattr(tc.value, "variables"):
+                a = tc.value.get_args(include_derived_parameters=True)
+                f = tc.value.fluxes
+                return [a.set_axis(ts)], [f.set_axis(ts)]
+        if len(ts) <= 2:
+            return None
+        mid = len(ts) // 2
+        first = run(y, ts[: mid + 1])
+        if first is None:
+            return None
+        y_mid = first[0][-1].iloc[-1][names].to_dict()
+        second = run(y_mid, ts[mid:])
+        if second is None:
+            return None
+        a2 = [second[0][0].iloc[1:], *second[0][1:]]
+        f2 = [second[1][0].iloc[1:], *second[1][1:]]
+        return first[0] + a2, first[1] + f2
+
+    ts = np.asarray(t, dtype=float)
+    if chunk is None:
+        out = run(dict(y0), ts)
+        return None if out is None else (pd.concat(out[0]), pd.concat(out[1]))
+    # fixed chunks of `chunk` output intervals: long single integrations of `full` hit
+    # a very slow regime, short ones don't
+    y, args, fluxes = dict(y0), [], []
+    for start in range(0, len(ts) - 1, chunk):
+        part = ts[start : start + chunk + 1]
+        out = run(y, part)
+        if out is None:
+            return None
+        a_part, f_part = pd.concat(out[0]), pd.concat(out[1])
+        if args:
+            a_part, f_part = a_part.iloc[1:], f_part.iloc[1:]
+        args.append(a_part)
+        fluxes.append(f_part)
+        y = a_part.iloc[-1][names].to_dict()
+    return pd.concat(args), pd.concat(fluxes)
 
 
 def turbidostat(

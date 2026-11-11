@@ -53,6 +53,13 @@ PFENNIG_POOLS = {"PGA": "3PGA", "ATP": "ATP", "NADPH": "NADPH"}  # metabolism ->
 SOLUBLE_TOTALS = ("AP_tot", "NADP_tot", "NAD_tot")  # [mmol mol(Chl)^-1] in pfennig
 REFERENCE_CHL = 19.9  # [mM] pfennig2024's per-Chl totals hold at this Chl content
 BIOMASS_ATP = metabolism.BIOMASS_ATP  # [mmol gDW^-1] (ADR 0006 checkpoint B)
+# non-growth-associated ATP maintenance [mmol ATP gDW^-1 h^-1], lower bound from protein
+# turnover in an iJN678-based Synechocystis model (arXiv 2506.05916). Saturating in ATP
+# (KM_NGAM), so it stops when ATP is gone (ADR 0006 checkpoint B). Without an ATP sink
+# that doesn't need NADPH, dim layers lock up: ATP fully charged, ATP synthase stalls,
+# lumen pH ~3, photosynthetic control stops electron transport.
+NGAM = 0.13
+KM_NGAM = 0.1  # [mM] (assumption, well below the ~8.5 mM adenylate pool)
 
 
 def per_chl(total_cell: float, chl: float) -> float:
@@ -62,6 +69,11 @@ def per_chl(total_cell: float, chl: float) -> float:
 
 def to_mM(x_per_chl: float, chl: float) -> float:
     return x_per_chl * chl / 1000
+
+
+def ngam_rate(atp: float, ngam: float, rho_dw: float, km: float) -> float:
+    """[mM min^-1] maintenance ATP use, ngam [mmol gDW^-1 h^-1] x rho_DW, saturating."""
+    return ngam / 60 * rho_dw * atp / (km + atp)
 
 
 def slow_dilution(x: float, mu: float, speed: float) -> float:
@@ -184,6 +196,8 @@ def get_model(
             "ps_ratio": 5.9,
             "beta_carotene_fraction": 0.26,
             "slow_speedup": 1.0 if dynamic else 100.0,
+            "NGAM": NGAM,
+            "KM_NGAM": KM_NGAM,
         }
     )
     if light_channels is not None:
@@ -280,6 +294,12 @@ def get_model(
             m.add_reaction(
                 pre + name, fn=r.fn, args=_rename(r.args, table), stoichiometry=stoich
             )
+        m.add_reaction(
+            f"{pre}atp_ngam",
+            fn=ngam_rate,
+            args=[f"{pre}ATP_mM", "NGAM", "rho_DW", "KM_NGAM"],
+            stoichiometry={pre + "ATP": _stoich(-conv, f"{pre}atp_ngam_ATP")},
+        )
         for k in PER_LAYER_METABOLITES:
             m.add_reaction(
                 f"{pre}dilution_{k}",

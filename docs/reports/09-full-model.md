@@ -61,3 +61,27 @@ Tests: `tests/test_full.py`.
 2. Low-light failure: candidates are making respiration and the maintenance sinks
    supply-dependent, adding a fitted PETC/CBB efficiency (as the surrogate families
    have), or stiff-solver settings. It needs work before the batch (goal 1) runs.
+
+## Update after checkpoint B
+
+Decisions (ADR 0006 §6): biomass ATP 50 mmol gDW^-1 for all families; supply-dependent
+sinks for `full`.
+
+- **Dim layers locked up energetically**: nothing used ATP without NADPH (pfennig2024's
+  lumped ATP consumption removed, maintenance sink off), so ATP charged fully (ADP
+  4e-8), ATP synthase stalled, lumen pH 3.4, cytoplasm pH 15, electron transport
+  stopped, NADPH 1e-6, and the solver failed. Tighter tolerances (atol 1e-14) didn't
+  help.
+- **Fix: non-growth-associated maintenance (NGAM) per layer**, 0.13 mmol ATP gDW^-1 h^-1
+  (lower bound from protein turnover, iJN678-based model, arXiv 2506.05916), saturating
+  in ATP (K_M 0.1 mM). Steady states now converge up to 4.5e8 cells mL^-1 (μ 0.009
+  h^-1, Chl 70 mM); 3e9 doesn't finish. Blue light works (dilute: blue 0.032, warm
+  white 0.030, red 0.036, orange 0.041 h^-1, unfitted, pbs_scale 1 while the PC:Chl data
+  imply ~3).
+- **The batch runs** (Fig 9 protocol), unfitted μ 0.012–0.018 h^-1 vs 0.04–0.06 in the
+  data (RMSE μ 0.021, ln N 1.12). But it takes 5–7 min: one long integration fails,
+  short chunks work (evaluator: chunked integration with recursive halving).
+- **Cause of the slowness: sustained fast oscillations in the darkest layer** (period
+  ~4 s; PC, PSII states, FNR driving force), so the solver needs tiny steps over 96 h.
+  Whether pfennig2024 oscillates in dim light on its own, or only coupled, isn't
+  checked yet.

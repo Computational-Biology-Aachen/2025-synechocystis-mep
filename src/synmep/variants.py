@@ -177,6 +177,7 @@ def _full(name: str) -> Adapter:
         cell_volume=4e-15,
         keys={"mu": "mu", "sq": "SQ", "v_sq": "v_sq", "chl": "Chl", "car": "Car"},
         time_per_min=60.0,
+        chunk=8,
     )
 
 
