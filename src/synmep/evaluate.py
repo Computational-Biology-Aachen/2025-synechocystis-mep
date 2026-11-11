@@ -217,3 +217,29 @@ def turbidostat(
 @cache
 def _growth_data() -> pd.Series:
     return load_legacy_inputs().exp_growth_rate_by_density
+
+
+FIG10_LIGHT = {"light": 80.0, "sample_depth": 0.02}  # as in the notebook
+
+
+def fig10(a: Adapter, *, light_channels=None, **light) -> dict:
+    """Fig 10: steady-state growth rate vs. cell density, against the batch data.
+
+    Note: this reuses the Fig 9 measurements (every second point), read as quasi-steady
+    growth at each density; it's a check of the steady-state assumption more than
+    independent validation data.
+    """
+    data = _growth_data()
+    light = FIG10_LIGHT | light
+    dens = data.index.to_numpy()[::2]
+    ref = data.to_numpy()[::2]
+    tu = turbidostat(a, densities=dens, light_channels=light_channels, **light)
+    mu = tu["mu_per_h"].to_numpy() if "mu_per_h" in tu else np.full(len(dens), np.nan)
+    ok = np.isfinite(mu)
+    return {
+        "density": dens.tolist(),
+        "mu_per_h": mu.tolist(),
+        "mu_data": ref.tolist(),
+        "n_converged": int(ok.sum()),
+        "rmse_mu_per_h": float(np.sqrt(np.mean((mu[ok] - ref[ok]) ** 2))),
+    }

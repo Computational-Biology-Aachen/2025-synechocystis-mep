@@ -4,8 +4,16 @@ from __future__ import annotations
 
 from functools import partial
 
+import mxlpy.integrators.int_native as _int_native
 from mxlpy.integrators import Native, Sundials
 from mxlpy.runners import KineticRunner
+
+# Native checks its compiled right-hand side against the Python model at perturbed
+# states with rtol 1e-8 (mxlpy 0.69). Balances of large, nearly cancelling terms (ATP
+# in the `double` metabolism ODE) differ by ~3e-8 from rounding alone, which raised
+# NativeLoweringError for a correct model. Since 0.69 the check reruns on every compile
+# cache hit, so it fires during scans. Looser tolerance until fixed upstream (report 07).
+_int_native._CHECK_RTOL = 1e-6
 
 NATIVE = partial(Native, method="CVODE_BDF")
 

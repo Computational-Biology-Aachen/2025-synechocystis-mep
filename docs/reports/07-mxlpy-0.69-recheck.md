@@ -60,6 +60,17 @@ caching, the relative comparison is what counts.)
    worker (payload above the 64 KB pipe buffer?). Unconfirmed.
 3. The remaining ~18 s pool start-up isn't explained yet (worker start + imports?).
 
+## Native's RHS check gives false positives (found later)
+
+Native compares its compiled right-hand side with the Python model at three perturbed
+states, rtol 1e-8. In the `double` metabolism ODE the ATP balance (large, nearly
+cancelling terms) differs by 2–4e-8 from rounding alone, so a correct model raised
+`NativeLoweringError: Compiled model disagrees with the model at variables [1]` during a
+density scan. Since 0.69 the check reruns on every compile-cache hit with the new start
+state, so it fires far more often than under 0.68. Workaround: `synmep.runners` sets
+`_CHECK_RTOL = 1e-6`. Candidate upstream issue: scale the tolerance with the magnitude
+of the terms, or treat a mismatch on a cache hit as a miss.
+
 ## Open
 
 - Bare pool start-up timing (trivial task, with/without heavy imports) to split (2)/(3).
