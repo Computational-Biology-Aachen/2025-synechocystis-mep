@@ -139,6 +139,24 @@ the goal answers over all passing variants is reported as structural uncertainty
 6. Goal runs.
 7. Summary report. **Checkpoint C.**
 
+## 3. Rationale
+
+- Batch productivity is the standard bioprocess figure and includes the shading build-up;
+  the turbidostat optimum shows what continuous operation could add.
+- Goal 2 is only meaningful if light is not interchangeable in the model; hence the
+  balance gate and the LED training data.
+- The `full` model with the same interface as a surrogate would only measure surrogate
+  error; sharing pools also captures feedback of the sink on the light reactions.
+- One calibration protocol and fixed gates make the comparison reproducible instead of
+  a matter of taste.
+
+## 4. Consequences
+
+- Every family needs a dynamic batch mode that runs reliably.
+- `single` will probably fail the balance gate (legacy surrogate); that is a result.
+- The `full` model is the largest risk (stiffness, pfennig changes).
+- Reports 01–07 and all scripts change names; earlier JSON results are regenerated.
+
 ## 5. Amendments at checkpoint A (report 08)
 
 - **Gate 1** becomes: reproduce pfennig2024's *paired spectral ranking* (same culture
@@ -157,21 +175,3 @@ the goal answers over all passing variants is reported as structural uncertainty
   `pbs_scale`, which the batch data can't separate from `petc_scale`).
 - **LEDs:** blue 450, orange 620, red 680 nm. Far-red 730 nm is outside the 400–700 nm
   absorption data and can't be assessed.
-
-## 3. Rationale
-
-- Batch productivity is the standard bioprocess figure and includes the shading build-up;
-  the turbidostat optimum shows what continuous operation could add.
-- Goal 2 is only meaningful if light is not interchangeable in the model; hence the
-  balance gate and the LED training data.
-- The `full` model with the same interface as a surrogate would only measure surrogate
-  error; sharing pools also captures feedback of the sink on the light reactions.
-- One calibration protocol and fixed gates make the comparison reproducible instead of
-  a matter of taste.
-
-## 4. Consequences
-
-- Every family needs a dynamic batch mode that runs reliably.
-- `single` will probably fail the balance gate (legacy surrogate); that is a result.
-- The `full` model is the largest risk (stiffness, pfennig changes).
-- Reports 01–07 and all scripts change names; earlier JSON results are regenerated.
