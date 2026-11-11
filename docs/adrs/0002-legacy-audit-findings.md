@@ -1,7 +1,7 @@
 # ADR 0002: Audit Findings of the Legacy Model
 
-**Status:** Accepted (findings); fixes scheduled for v1 (ADR 0001)
-**Scope:** `model.py`, `kinetics.py`, `main.ipynb` (legacy, "v0")
+**Status:** Accepted (findings); fixes scheduled for single-fixed (ADR 0001)
+**Scope:** `model.py`, `kinetics.py`, `main.ipynb` (legacy, "single-legacy")
 
 ---
 
@@ -15,10 +15,10 @@ row 24 of `growth_rates_by_density.csv`).
 
 ## 2. Decision
 
-v0 reproduces all findings below unchanged (faithful port). v1 fixes them, one commit per
+single-legacy reproduces all findings below unchanged (faithful port). single-fixed fixes them, one commit per
 fix, each with a before/after note appended to §5 of this ADR.
 
-### 2.1 Bugs (fix in v1)
+### 2.1 Bugs (fix in single-fixed)
 
 | #  | Finding | Location | Effect |
 | -- | ------- | -------- | ------ |
@@ -90,31 +90,31 @@ Runtime: one RHS call costs ≈ 10 ms (sklearn + pandas + Simpson); one steady s
 
 ## 4. Rationale / Consequences
 
-- v1 must keep the surrogate within its validity domain: clamp/saturate its inputs
+- single-fixed must keep the surrogate within its validity domain: clamp/saturate its inputs
   smoothly, or retrain it with a range covering the scenarios (light up to ≥ 400 µE,
   Chl down to the knock-down levels), with a monotone/bounded form. The surrogate's
   training domain must be recorded with the coefficients.
 - Fixing B2 (dynamic Chl) and B3 (biomass drain) changes the qualitative coupling: supply
   will scale with Chl and growth will draw on cofactors. Figs 9–12 must be re-checked
   after each of these fixes.
-- **Decided at checkpoint a — growth law (v1):** keep the empirical μ ∝ v_Chl law, with
+- **Decided at checkpoint a — growth law (single-fixed):** keep the empirical μ ∝ v_Chl law, with
   an explicit slope parameter and one consistent cell volume; the PETC supply conversion
   uses the dynamic Chl state (fixes B2). Document that Chl* is pinned. The cell volume value
   (2 vs. 4 fL) is still open.
-- **Decided at checkpoint a — surrogate (v1):** **retrain** the PETC surrogate from the
+- **Decided at checkpoint a — surrogate (single-fixed):** **retrain** the PETC surrogate from the
   current mxl-models `pfennig2024_synechocystis` over a wider, documented input domain with
   a bounded form (fixes B1). The pfennig steady states are computed with the mxlpy
-  **native** runner. The exact legacy polynomial is kept only for v0.
+  **native** runner. The exact legacy polynomial is kept only for single-legacy.
 
-## 5. Fix log (v1)
+## 5. Fix log (single-fixed)
 
-Metrics from `scripts/v1_impact.py` (dshc): **ss** = steady state at light 100 and the
+Metrics from `scripts/single_fixed_impact.py` (dshc): **ss** = steady state at light 100 and the
 density of data row 24; **Fig 9** = pre-culture steady state at row 24, diluted to the
 first data point, 80 µE, 13.5 mm, 96 h, RMSE vs. `growth_rates_by_density.csv`.
 
 | Step | ss μ [h^-1] | ss Chl [mM] | ss SQ [mM] | Fig 9 RMSE μ [h^-1] | Fig 9 RMSE ln N |
 | ---- | ----------- | ----------- | ---------- | ------------------- | --------------- |
-| v0 (baseline) | 0.0462 | 12.64 | 0.403 | 0.0053 | 0.135 |
+| single-legacy (baseline) | 0.0462 | 12.64 | 0.403 | 0.0053 | 0.135 |
 | B4 DXS monomerisation | 0.0317 | 12.64 | 0.299 | 0.0059 | 0.094 |
 | B5 Sqs mass-action ratio | 0.0317 | 12.64 | 0.299 | 0.0059 | 0.094 |
 | B7 ordered-mechanism 0/0 | 0.0317 | 12.64 | 0.299 | 0.0059 | 0.094 |
@@ -136,7 +136,7 @@ first data point, 80 µE, 13.5 mm, 96 h, RMSE vs. `growth_rates_by_density.csv`.
   no longer diverges as SQ → 0 (e.g. a fresh Δshc culture without squalene).
 - **B7** — `reversible_ordered_2_comp*` use (KmP + P(1 + A/KiA))/Keq instead of
   kcat·Et/(kcat·Et·Keq)·(...). Identical for Et > 0; defined for knock-outs (Et = 0).
-- **B6** — missing Km/Ki/Kd default to 100 µM / 1000 µM / 1 µM (`synmep.data_v1`),
+- **B6** — missing Km/Ki/Kd default to 100 µM / 1000 µM / 1 µM (`synmep.data_single_fixed`),
   instead of 100 mM / 1000 mM / 1 mM. 1191 of 1278 kinetic constants are defaults; 18 of
   them are used by the model: DXS Ki(IPP, DMAPP, PYR), Kd(ThiDP); CrtE Ki(DMAPP, GPP,
   FPP), Km(GGPP); ChlP Ki(GGPP, Chl-GGPP), Km(Chl-GGPP, Chl-phytol); ChlG Km(Chl-GGPP);
@@ -144,7 +144,7 @@ first data point, 80 µE, 13.5 mm, 96 h, RMSE vs. `growth_rates_by_density.csv`.
   is product inhibition of Chl synthesis (Km(Chl-phytol) 100 → 0.1 mM vs. a 12.6 mM
   pool) and stronger IPP/DMAPP feedback on DXS. Because growth follows Chl synthesis,
   batch growth now overshoots after dilution (peak 0.12 h^-1, 6.8e9 cells mL^-1 at 96 h):
-  **the legacy parameter set was effectively tuned around the buggy defaults**; v1 needs
+  **the legacy parameter set was effectively tuned around the buggy defaults**; single-fixed needs
   recalibration once all fixes are in.
 - **B10** — minimal kcats use the flux content·ln2/T_d with T_d = 330 min (paper: 5.5 h)
   instead of content/300 min, i.e. all min-kcats × 0.63 (the unexplained ×2 safety

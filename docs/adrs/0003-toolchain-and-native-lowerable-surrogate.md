@@ -1,8 +1,8 @@
 # ADR 0003: uv + mxlpy Toolchain and a Native-Lowerable Surrogate
 
-**Status:** Implemented (v0)
+**Status:** Implemented (single-legacy)
 **Scope:** `pyproject.toml`, `src/synmep/surrogates/petc_legacy.py`, `src/synmep/exprfn.py`,
-`src/synmep/models/v0_faithful.py`
+`src/synmep/models/single_legacy.py`
 
 ---
 
@@ -40,7 +40,7 @@ sympy.
 
 ## 3. Rationale
 
-- Explicit expressions are exact (polynomial vs sklearn: rtol 1e-9; v0 RHS/fluxes vs
+- Explicit expressions are exact (polynomial vs sklearn: rtol 1e-9; single-legacy RHS/fluxes vs
   legacy at 15 checkpoints: rtol 1e-7), introspectable, and lowerable.
 - Two mxlpy 0.68 limitations were found while porting (reported upstream, not patched
   here, per ADR 0001):
@@ -57,13 +57,13 @@ sympy.
 
 ## 4. Consequences
 
-- First native call per process lowers and compiles the model: ~9 s for v0. This was
+- First native call per process lowers and compiles the model: ~9 s for single-legacy. This was
   64 s before splitting the PETC block into small intermediates and emitting long sums
   as balanced trees. The time is spent in mxlpy re-parsing functions into sympy
   (quadratic `Add` rebuilding, `Max`/`Min` simplification over huge arguments), not in
   the backend ([MxlPy#203](https://github.com/Computational-Biology-Aachen/MxlPy/issues/203)).
   After that a steady state takes ~0.4 s. loky workers in parallel scans each compile once, so short scans run faster
-  serially (see `docs/reports/01-benchmark-v0.md`).
+  serially (see `docs/reports/01-benchmark-single-legacy.md`).
 - For the retrained pfennig surrogate (stage 2), pfennig2024's spectral derived
   quantities depend only on parameters, so they are replaced by parameters
   (absorbed light per complex, OCP light). This both makes pfennig2024 lowerable and
@@ -71,3 +71,11 @@ sympy.
   enter only through absorption, so the new surrogate needs 4 inputs, not 7.
 - If mxlpy gains data lowering or fixes the generated-function lookup, `exprfn` and
   the baked-in constants can be revisited.
+
+## 5. Update (mxlpy 0.69, report 07)
+
+MxlPy#201–#204 are fixed upstream. `synmep.exprfn.expr_fn` is now a thin wrapper around
+mxlpy's `compile_fn` (1.5–2× faster first native call); it sets the generated
+function's `__module__`, without which every pickle of the model (each parallel task)
+searched `sys.modules` for it. The baked-in spectral constants of `single-legacy` are
+kept, since that model is regression-tested in this form.

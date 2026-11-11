@@ -2,7 +2,7 @@
 
 Inventory of every hard-coded number in the legacy model and notebook, with what it
 means and whether its origin is known. **Source "?"** means it isn't documented anywhere
-in the repo or the paper. These must become named, sourced parameters in v1 (ADR 0001).
+in the repo or the paper. These must become named, sourced parameters in single-fixed (ADR 0001).
 
 ## Physiology / conversion constants
 
@@ -72,7 +72,7 @@ in the repo or the paper. These must become named, sourced parameters in v1 (ADR
 - The 3PGA pool stands for all sugar phosphates; G3P/PYR are fixed fractions of it.
 - One lumped "carotenoids" product (2 GGPP → 1 carotenoid).
 
-## Minimal model v3 (ADR 0005)
+## `minimal-m0` (ADR 0005)
 
 | Value | Meaning | Unit | Source / status |
 | --- | --- | --- | --- |

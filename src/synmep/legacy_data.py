@@ -3,7 +3,7 @@
 
 These functions turn the raw CSVs in `data/` into enzyme costs, enzyme
 concentrations [µM], kinetic parameters and minimal kcats. They are kept
-unchanged for v0 (faithful port, ADR 0001); known issues are listed in ADR 0002
+unchanged for single-legacy (faithful port, ADR 0001); known issues are listed in ADR 0002
 (B6: default Km/Ki/Kd applied after µM→mM; B10: min-kcat estimate).
 """
 

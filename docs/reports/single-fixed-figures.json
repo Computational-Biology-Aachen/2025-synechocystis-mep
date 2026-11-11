@@ -1,0 +1,14 @@
+{
+ "single-legacy": {
+  "fig9_rmse_mu_per_h": 0.005262991580496275,
+  "fig9_rmse_ln_N": 0.1352231503196024,
+  "fig10_rmse_mu_per_h": 0.006965740806828527,
+  "fig10_n_converged": 23
+ },
+ "single-fixed": {
+  "fig9_rmse_mu_per_h": 0.019473383968422433,
+  "fig9_rmse_ln_N": 0.8927629052960665,
+  "fig10_rmse_mu_per_h": 0.03529650098084525,
+  "fig10_n_converged": 15
+ }
+}

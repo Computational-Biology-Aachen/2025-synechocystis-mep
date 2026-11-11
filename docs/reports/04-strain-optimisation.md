@@ -19,14 +19,14 @@ As in the notebook / paper Fig 12, with **each enzyme overexpressed at most once
 4. Repeat until no enzyme passes (or every enzyme was used once, max 10 rounds). Round 1
    answers "which *single* overexpression is best".
 
-Overexpression is a fold change of the enzyme: v0/v1 scale the enzyme's synthesis rate,
-thread g its level, by `1 + 1.331057 kDa / (2 E0)` (E0 = legacy proteomics
-concentration). For v0 this is exactly the notebook's additive
-`ksynth + 1.331057 kDa / (5.5 h)`. Thread g lumps DXR…IspH into one "MEP" enzyme, which
+Overexpression is a fold change of the enzyme: `single` scales the enzyme's synthesis
+rate, `double` and `minimal` its level, by `1 + 1.331057 kDa / (2 E0)` (E0 = legacy proteomics
+concentration). For single-legacy this is exactly the notebook's additive
+`ksynth + 1.331057 kDa / (5.5 h)`. `double` and `minimal` lump DXR…IspH into one "MEP" enzyme, which
 gets the geometric mean of their folds (in reality that's several genes). ChlP/ChlG are
 one lump ("Chl").
 
-Thread g uses `models/g_coupled.py`: the explicit metabolism ODE coupled to the growth
+`double` uses `models/double.py`: the explicit metabolism ODE coupled to the growth
 layer at fixed density, because the metabolism surrogate only has E_CrtE as an input.
 Parameters come from each variant's batch fit.
 
@@ -39,44 +39,44 @@ Top: score per enzyme and round (red boxes = chosen). Bottom: intracellular squa
 
 | variant | single best | order (until no positive step is left) | SQ start [g/L] | after 1 | end | μ start [1/h] | μ end | rejected (round: enzyme) |
 |:--|:--|:--|--:|--:|--:|--:|--:|:--|
-| v0 (legacy) | IspG | IspG, DXS, IspD, Sqs, Idi | 0.196 | 0.203 | 0.812 | 0.060 | 0.086 | 5: IspF, IspH |
-| v1 (bugs fixed, not recalibrated) | DXS | DXS, Sqs, CrtB, IspD, IspG, IspF, IspE, DXR | 0.044 | 0.108 | 0.971 | 0.011 | 0.034 | 3: Idi; 5–8: IspH (, Idi) |
-| g, unregulated pigments | Sqs | Sqs, CrtE, DXS | 1.08 | 5.10 | 6.62 | 0.050 | 0.038 | 2: MEP |
-| g, A: growth-coupled pigment enzymes | Sqs | Sqs, CrtE, MEP, DXS | 0.79 | 3.74 | 5.35 | 0.087 | 0.117 | – |
-| g, B: photoacclimation (a ≈ 0) | Sqs | Sqs, CrtE, MEP, DXS | 0.78 | 2.70 | 8.93 | 0.095 | 0.070 | – |
-| g, C: capacity acclimation | Sqs | Sqs, CrtE, MEP, DXS | 0.72 | 2.25 | 8.71 | 0.121 | 0.120 | – |
-| v3 (drain / proteome cost) | Sqs | Sqs, CrtE, MEP, DXS | 0.94 | 3.22 | 6.06 / 6.45 | 0.082 | 0.038 | – |
-| v3 + capacity (drain / proteome) | Sqs | Sqs, CrtE, MEP, DXS, CrtB, Chl | 0.81 | 2.48 | 6.18 / 6.75 | 0.105 | 0.095 / 0.086 | – |
+| single-legacy | IspG | IspG, DXS, IspD, Sqs, Idi | 0.196 | 0.203 | 0.812 | 0.060 | 0.086 | 5: IspF, IspH |
+| single-fixed (not recalibrated) | DXS | DXS, Sqs, CrtB, IspD, IspG, IspF, IspE, DXR | 0.044 | 0.108 | 0.971 | 0.011 | 0.034 | 3: Idi; 5–8: IspH (, Idi) |
+| double-none | Sqs | Sqs, CrtE, DXS | 1.08 | 5.10 | 6.62 | 0.050 | 0.038 | 2: MEP |
+| double-coupled | Sqs | Sqs, CrtE, MEP, DXS | 0.79 | 3.74 | 5.35 | 0.087 | 0.117 | – |
+| double-photoacclimation (retired) | Sqs | Sqs, CrtE, MEP, DXS | 0.78 | 2.70 | 8.93 | 0.095 | 0.070 | – |
+| double-capacity (retired) | Sqs | Sqs, CrtE, MEP, DXS | 0.72 | 2.25 | 8.71 | 0.121 | 0.120 | – |
+| minimal-m0 (drain, retired / proteome cost) | Sqs | Sqs, CrtE, MEP, DXS | 0.94 | 3.22 | 6.06 / 6.45 | 0.082 | 0.038 | – |
+| minimal-m0-cap (drain, retired / proteome) | Sqs | Sqs, CrtE, MEP, DXS, CrtB, Chl | 0.81 | 2.48 | 6.18 / 6.75 | 0.105 | 0.095 / 0.086 | – |
 
-v3 figure: `figures/strain-optimisation-v3.png` (report 06).
+minimal-m0 figure: `figures/strain-optimisation-minimal.png` (report 06).
 
 ## Interpretation
 
-- **v0 reproduces the notebook's first steps** (IspG, DXS, IspD, Sqs, start 0.2 g/L): a
+- **single-legacy reproduces the notebook's first steps** (IspG, DXS, IspD, Sqs, start 0.2 g/L): a
   check of the procedure and of the fold-change formulation. The notebook's later steps
   (ChlG, ChlP, …) had non-positive control on squalene and are no longer taken.
-- **The recommendation depends on the model.** v0 picks IspG first, v1 picks DXS (fixing
+- **The recommendation depends on the model.** single-legacy picks IspG first, single-fixed picks DXS (fixing
   the DXS feedback bug B4 and the µM/mM Km defaults B6 moves control to DXS), and all
-  thread-g variants pick **Sqs, then CrtE, then the MEP chain, then DXS**. The thread-g
-  ranking is robust across the four pigment/capacity variants.
-- In thread g, Sqs and CrtE carry most of the control because the reference state was
+  `double` variants pick **Sqs, then CrtE, then the MEP chain, then DXS**. The `double`
+  ranking is robust across its four pigment/capacity variants (two now retired).
+- In `double`, Sqs and CrtE carry most of the control because the reference state was
   built with Sqs saturated by FPP (Km 2.8 µM, legacy value) and CrtE feeding both FPP and
   GGPP; DXS only gains control once Sqs and CrtE are raised (round 4, score 0.2–2).
 - **With the positive-control rule the sequences stop by themselves**: after Sqs, CrtE,
-  MEP, DXS in thread g and v3 (g-none: MEP rejected, it lowers squalene as a finite step),
-  after 5 steps in v0. Only v3 with capacity acclimation still finds positive control
+  MEP, DXS in `double` and minimal-m0 (double-none: MEP rejected, it lowers squalene as a finite step),
+  after 5 steps in single-legacy. Only minimal-m0 with capacity acclimation still finds positive control
   for the pigment enzymes (CrtB, Chl): more pigment → more growth and supply there.
   (Before this rule every enzyme was used once, and the last rounds lowered squalene.)
-- **Local control can mislead for large steps**: in v0, v1 and g-none, enzymes with
+- **Local control can mislead for large steps**: in single-legacy, single-fixed and double-none, enzymes with
   positive response coefficients lowered the squalene content once overexpressed by their
   (up to 300-fold) fold change; the realised-step check rejects them.
-- Absolute squalene levels aren't comparable between threads: thread g's reference was
+- Absolute squalene levels aren't comparable between families: `double`'s reference was
   built with the sqs strain's measured squalene content (2.9 mM ≈ 1.2 g/L), the legacy
-  model has no such calibration. v1 isn't recalibrated yet (it grows ~5x slower here).
+  model has no such calibration. single-fixed isn't recalibrated yet (it grows ~5x slower here).
 
 ## Caveats
 
-- The lumped MEP chain in thread g stands for six genes; its overexpression isn't a
+- The lumped MEP chain in `double` stands for six genes; its overexpression isn't a
   single-gene intervention.
 - Fold changes are tied to the legacy (2 fL) proteomics concentrations, as in the paper.
 - Responses are steady-state, at one density/light; the batch dynamics (Fig 11) aren't

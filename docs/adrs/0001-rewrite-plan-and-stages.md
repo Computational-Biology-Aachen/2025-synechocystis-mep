@@ -1,6 +1,6 @@
 # ADR 0001: Rewrite Plan, Stages and Model Variants
 
-**Status:** Accepted
+**Status:** Accepted; goals, families and names superseded by ADR 0006
 **Scope:** whole repository (except `paper/`, which is read-only)
 
 ---
@@ -26,13 +26,13 @@ over wide parameter ranges, has unit inconsistencies (ADR 0002, `docs/units.md`)
 Rewrite in stages, producing one model variant per stage, each a separate module in
 `src/synmep/models/`:
 
-| Variant          | Stage | What                                                                 |
-| ---------------- | ----- | -------------------------------------------------------------------- |
-| `v0_faithful`    | 1     | 1:1 mxlpy port, bugs included, regression-tested against legacy outputs |
-| `v1_fixed`       | 2     | bug fixes (one commit each), single unit system, sourced parameters   |
-| `v2a_timescale`  | 3     | fast pools (cofactors, MEP/prenyl intermediates) → steady-state polynomial surrogate; slow pools (enzymes, pigments, products, density) stay ODEs |
-| `v2b_wholecell`  | 3     | whole cell at balanced growth → polynomial surrogate; growth model reduces to dN/dt = μN with self-shading |
-| `v3_minimal`     | 4     | smallest model that still passes the acceptance criteria (§2.4)       |
+| Variant (ADR 0006 name) | Stage | What |
+| --- | --- | --- |
+| `single-legacy` | 1 | 1:1 mxlpy port, bugs included, regression-tested against legacy outputs |
+| `single-fixed` | 2 | bug fixes (one commit each), single unit system, sourced parameters |
+| v2a (timescale split) | 3 | fast pools (cofactors, MEP/prenyl intermediates) → steady-state polynomial surrogate; slow pools (enzymes, pigments, products, density) stay ODEs. **Not built**: superseded by the `double` family (ADR 0004) |
+| v2b (whole cell) | 3 | whole cell at balanced growth → polynomial surrogate; growth model reduces to dN/dt = μN with self-shading. **Not built** |
+| `minimal` | 4 | smallest model that still passes the acceptance criteria (§2.4) |
 
 ### 2.1 Stage 0 — audit
 Unit/assumption reference (`docs/units.md`, `docs/assumptions.md`), bug list and
@@ -45,22 +45,23 @@ stiffness diagnosis (ADR 0002), `docs/lessons-learned.md` started.
   `scripts/legacy/` (they only run in the old env; kept for provenance).
 - Switch to uv with `mxlpy[sundials,native]>=0.68` from PyPI. mxlpy, mxlpy-native and
   sundials4py are exempt from the `exclude-newer` cooldown.
-- Port v0 faithfully; benchmark mxlpy default sundials vs native runner (+ legacy
+- Port single-legacy faithfully; benchmark mxlpy default sundials vs native runner (+ legacy
   modelbase/assimulo baseline) → `docs/reports/`.
 
 ### 2.3 Stages 2–4
-v1 → v2a/v2b → v3 as in the table. v2a and v2b are both built on v1 and compared.
+single-fixed → v2a/v2b → minimal as in the table. v2a and v2b were to be built on single-fixed
+and compared (superseded: ADR 0004, ADR 0006).
 
 ### 2.4 Acceptance criteria
-- v0: matches legacy reference (steady state / trajectories, rtol ≈ 1e-6).
-- v2a/v2b: surrogate hold-out error reported; Figs 9–12 compared against v1.
-- v3: refitting allowed; Fig 9/10 RMSE vs. experimental growth data ≤ v1 + 10 %;
-  Figs 11/12 qualitatively the same as v1 (shape of induction-timing curve; same top ~3
+- single-legacy: matches legacy reference (steady state / trajectories, rtol ≈ 1e-6).
+- v2a/v2b: surrogate hold-out error reported; Figs 9–12 compared against single-fixed.
+- minimal: refitting allowed; Fig 9/10 RMSE vs. experimental growth data ≤ single-fixed + 10 %;
+  Figs 11/12 qualitatively the same as single-fixed (shape of induction-timing curve; same top ~3
   MCA overexpression targets).
 - Target data are the paper's Fig 9–12 outputs only.
 
 ### 2.5 Process
-- Review checkpoints after the audit, v0 + benchmark, v1 and v2a/v2b.
+- Review checkpoints after the audit, single-legacy + benchmark, single-fixed and v2a/v2b.
 - Conventional commits on `main`, committed frequently; commits only ever include our own
   paths (never `paper/` or `.gitmodules`).
 - `paper/` is never edited, committed in, or pushed.
@@ -78,8 +79,8 @@ v1 → v2a/v2b → v3 as in the table. v2a and v2b are both built on v1 and comp
 
 ## 4. Consequences
 
-- The legacy files (`model.py`, `kinetics.py`, `parallel.py`) stay until v0 is verified,
+- The legacy files (`model.py`, `kinetics.py`, `parallel.py`) stay until single-legacy is verified,
   then are removed (recoverable from git history).
 - The pixi env disappears after reference generation, so `scripts/legacy/` can then only
   be rerun by checking out an older commit.
-- The growth-law choice for v1 is deliberately deferred to after the audit (see ADR 0002).
+- The growth-law choice for single-fixed is deliberately deferred to after the audit (see ADR 0002).

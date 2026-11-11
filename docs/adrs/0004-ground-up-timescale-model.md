@@ -1,15 +1,16 @@
-# ADR 0004: Ground-Up Three-Timescale Model (thread "g")
+# ADR 0004: Ground-Up Three-Timescale Model (`double` Family)
 
-**Status:** Accepted, in progress
-**Scope:** `src/synmep/petc/`, `src/synmep/surrogates/poly.py`, `src/synmep/models/g_*.py`,
+**Status:** Accepted; this is the `double` family of ADR 0006 (formerly thread "g")
+**Scope:** `src/synmep/petc/`, `src/synmep/surrogates/poly.py`, `src/synmep/models/double*.py`, `src/synmep/models/metabolism.py`,
 `scripts/train_*.py`
 
 ---
 
 ## 1. Context
 
-Besides the v0 → v1 → v2 → v3 refactoring thread (ADR 0001), a second development
-thread builds the model **from the ground up**. It uses values and ideas from the legacy
+Besides the single-legacy → single-fixed → v2 refactoring line (ADR 0001), a second
+development line (the `double` family: surrogate PETC, surrogate metabolism, dynamic
+culture) builds the model **from the ground up**. It uses values and ideas from the legacy
 model where useful, but simpler rate kinetics, and is fitted to the experimental data.
 The layers are separated by timescale:
 
@@ -86,7 +87,7 @@ literature.
   0.97 g mL^-1 (cells: ~0.3–0.4). The cells-per-OD calibration, the cell volume or the
   dry weights don't fully agree. Ratios that don't involve the volume (DW : Chl) look
   plausible.
-- **Paper vs. code biomass stoichiometry differ** (see ADR 0002); this thread uses the
+- **Paper vs. code biomass stoichiometry differ** (see ADR 0002); this family uses the
   paper's table.
 - **Native's oscillation detector gives false positives** for monotonically settling
   trajectories of pfennig2024 and the metabolism model ("Oscillatory behaviour
@@ -95,7 +96,7 @@ literature.
 - **Parallel scans with the native runner hung** (loky workers idle, main process busy);
   serial scans are used (4000 PETC steady states in ~1 min).
 - At very low supply, steady-state pigment contents per cell rise strongly, because
-  pigment synthesis doesn't slow with growth (see `docs/reports/03-g-thread.md`).
+  pigment synthesis doesn't slow with growth (see `docs/reports/03-double.md`).
 - **Surrogates must be trained on physically realisable inputs.** Independently sampled
   inputs left real operating points (low PBS:PS1 at 4 fL; high ATP:PGA supply ratios)
   outside the joint training distribution, where per-input clamping can't help and the
@@ -115,20 +116,22 @@ literature.
   the PETC training domain all four inputs are scaled up together to its edge and the
   outputs interpolated linearly to zero (pfennig2024 can't be integrated in complete
   darkness; at 1 % light its supply is ~0).
-- **Pigment regulation, two variants** (`g_growth.get_model(pigment_regulation=...)`):
-  A (`coupled`): CrtB and ChlP/ChlG activity ∝ (μ/μ_ref)^c, c = 1, own metabolism
-  surrogate; B (`photoacclimation`): Chl*, Car* = X_ref (1+a)/(1+a L_rel), a fitted.
-  B fits best (μ RMSE 0.0097 h^-1, ln N 0.156) with a ≈ 0, i.e. constant pigment
-  contents. Neither reproduces the initial growth rise → capacity acclimation is the
-  candidate mechanism (report: `docs/reports/03-g-thread.md`).
-- **Capacity acclimation** (variant C, `capacity`): slow state Cap scaling the PETC
+- **Pigment regulation** (`double_growth.get_model(pigment_regulation=...)`):
+  `double-none` (unregulated) and `double-coupled` (CrtB and ChlP/ChlG activity
+  ∝ (μ/μ_ref)^c, c = 1, own metabolism surrogate). Two further variants were tried and
+  are retired (ADR 0006): `double-photoacclimation` (Chl*, Car* = X_ref (1+a)/(1+a L_rel),
+  a fitted) fitted best of the three (μ RMSE 0.0097 h^-1, ln N 0.156) but with a ≈ 0,
+  i.e. constant pigment contents. None reproduces the initial growth rise → capacity
+  acclimation is the candidate mechanism (report: `docs/reports/03-double.md`).
+- **Capacity acclimation** (`double-capacity`, retired): slow state Cap scaling the PETC
   supply, Cap* = (1+K) L_rel/(K+L_rel), dCap/dt = (Cap* − Cap)/τ, constant pigments.
-  Best fit so far (μ RMSE 0.0077 h^-1, ln N 0.141; K ≈ 59, τ ≈ 100 h), captures part of
-  the early rise.
-- **Strain optimisation** (Fig 12) runs on `models/g_coupled.py` (metabolism ODE +
+  Best `double` fit (μ RMSE 0.0077 h^-1, ln N 0.141; K ≈ 59, τ ≈ 100 h), captures part
+  of the early rise. Capacity acclimation becomes an option for every family, with
+  dynamic pigments (ADR 0006).
+- **Strain optimisation** (Fig 12) runs on `models/double.py` (metabolism ODE +
   growth layer at fixed density). Steps are only taken with positive control on the
-  score and on the intracellular squalene content. All thread-g variants recommend Sqs,
-  CrtE, then the MEP chain and DXS (g-none: MEP rejected, it lowers squalene as a finite
+  score and on the intracellular squalene content. All `double` variants recommended Sqs,
+  CrtE, then the MEP chain and DXS (double-none: MEP rejected, it lowers squalene as a finite
   step), and then stop (report: `docs/reports/04-strain-optimisation.md`).
 
 ## 3. Rationale
@@ -139,7 +142,7 @@ literature.
   assumption.
 
 ## 4. Consequences
-- The retrained PETC surrogate is shared with v1 (ADR 0002 §4).
-- Results are compared against v1 and the experimental data in a report per stage.
+- The retrained PETC surrogate is shared with single-fixed (ADR 0002 §4).
+- Results are compared against single-fixed and the experimental data in a report per stage.
 - Open: whether lumped enzyme pools need their own slow dynamics (synthesis/dilution)
   for Figs 11/12, or whether parameters suffice.

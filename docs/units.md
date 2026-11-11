@@ -1,11 +1,11 @@
 # Units reference
 
 Working reference for the unit system of the legacy model (`model.py`, `kinetics.py`,
-called **v0** from here on) and the target system for v1+.
+called **single-legacy** from here on) and the target system for single-fixed and later families.
 Derivations are checked numerically against a legacy steady state (dshc, steady growth,
 default parameters, cell density = `growth_rates_by_density.csv` row 24).
 
-## 1. Target unit system (v1+)
+## 1. Target unit system (single-fixed and later families)
 
 | Quantity                       | Unit                          |
 | ------------------------------ | ----------------------------- |
@@ -22,12 +22,12 @@ default parameters, cell density = `growth_rates_by_density.csv` row 24).
 No `/1000` or `*60` inside rate laws. Every conversion factor is a named parameter
 with a unit and a source (see `assumptions.md`).
 
-## 2. Legacy (v0) unit system as implemented
+## 2. Legacy (single-legacy) unit system as implemented
 
-v0 is **mixed**: metabolites in mM, enzymes in µM, with unit conversion hidden inside
+single-legacy is **mixed**: metabolites in mM, enzymes in µM, with unit conversion hidden inside
 rate laws.
 
-| Quantity                                  | v0 unit                     | Where                              |
+| Quantity                                  | single-legacy unit                     | Where                              |
 | ----------------------------------------- | --------------------------- | ---------------------------------- |
 | metabolites (3PGA, ATP, MEP …, Chl, SQ)   | mM                          | implicit (rate laws `Et/1000`)     |
 | enzymes (DXS, IspD …)                     | µM                          | proteomics → µM; `Et/1000` in laws |
@@ -85,7 +85,7 @@ consumes μ × mmol gDW^-1 / 60, which is dimensionally not a concentration rate
 v_biomass,X [mM min^-1] = μ [min^-1] × stoich_X [mmol gDW^-1] × ρ_DW [gDW L(cell)^-1]
 ```
 
-With ρ_DW ≈ 300–400 g L^-1 the drain is ≈ 2·10^4 × larger than in v0. In v0 the biomass
+With ρ_DW ≈ 300–400 g L^-1 the drain is ≈ 2·10^4 × larger than in single-legacy. In single-legacy the biomass
 reaction consumes ~0.01 % of the 3PGA supply, and ~97 % leaves through the arbitrary
 first-order `*_out_metabolism` sinks (k = 0.5 min^-1).
 

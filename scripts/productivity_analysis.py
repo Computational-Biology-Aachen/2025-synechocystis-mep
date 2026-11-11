@@ -20,13 +20,13 @@ Scanned: the squalene synthase level (the "pull" on FPP, 0.1-1e4x wild type) × 
 cell density the turbidostat holds. Reported per variant: the trade-off between growth
 and specific squalene production, pigment content, and the optimum of P.
 
-Thread g additionally gets a stoichiometric bound: all 3PGA supplied at that density
+The `double` family additionally gets a stoichiometric bound: all 3PGA supplied at that density
 going to squalene (12 3PGA per squalene via 6 DXS reactions).
 
-Variants: v0, v1 (empirical growth law μ ∝ v_Chl), g-none and g-coupled (pigments
-follow synthesis, so the trade-off acts through light absorption and self-shading),
-g-photoacclimation and g-capacity (pigment contents fixed by construction: controls
-without the pigment side of the trade-off). Writes docs/reports/productivity.json.
+Variants (ADR 0006): single-legacy, single-fixed (empirical growth law μ ∝ v_Chl),
+double-none and double-coupled (pigments follow synthesis, so the trade-off acts through
+light absorption and self-shading), minimal-m0[-cap]. Writes
+docs/reports/productivity.json.
 """
 
 from __future__ import annotations
@@ -54,13 +54,13 @@ PGA_PER_SQ = 12  # 6 C5 units, each from one DXS reaction (G3P + PYR = 2 3PGA)
 
 
 def legacy_adapter(name: str):
-    if name == "v0":
-        from synmep.models import v0_faithful as mod
+    if name == "single-legacy":
+        from synmep.models import single_legacy as mod
 
         inp, runner, vcell = load_legacy_inputs(), NATIVE_RUNNER, 2e-15
     else:
-        from synmep.data_v1 import load_inputs
-        from synmep.models import v1_fixed as mod
+        from synmep.data_single_fixed import load_inputs
+        from synmep.models import single_fixed as mod
 
         inp, runner, vcell = load_inputs(), SUNDIALS_RUNNER, 4e-15
     base = mod.get_model(inp, "dshc", "steady")
@@ -78,10 +78,10 @@ def legacy_adapter(name: str):
     return configure, runner, vcell, keys, None, "Sqs_ksynth"
 
 
-def g_adapter(variant: str):
-    from synmep.models import g_coupled
+def double_adapter(variant: str):
+    from synmep.models import double
 
-    base = g_coupled.get_model(load_legacy_inputs(), variant)  # type: ignore[arg-type]
+    base = double.get_model(load_legacy_inputs(), variant)  # type: ignore[arg-type]
 
     p0 = base.get_parameter_values()
 
@@ -94,10 +94,10 @@ def g_adapter(variant: str):
     return configure, NATIVE_RUNNER, 4e-15, keys, "S_PGA", "E_Sqs"
 
 
-def v3_adapter(name: str):
-    from synmep.models import v3_minimal
+def minimal_adapter(name: str):
+    from synmep.models import minimal
 
-    base = v3_minimal.get_model(load_legacy_inputs(), **v3_minimal.variant(name))
+    base = minimal.get_model(load_legacy_inputs(), **minimal.variant(name))
     p0 = base.get_parameter_values()
 
     def configure(folds: dict[str, float], n: float):
@@ -114,11 +114,11 @@ def _get(fluxes, args, key: str) -> float:
 
 
 def adapter(name: str):
-    if name in ("v0", "v1"):
+    if name in ("single-legacy", "single-fixed"):
         return legacy_adapter(name)
-    if name.startswith("v3"):
-        return v3_adapter(name)
-    return g_adapter(name.removeprefix("g-"))
+    if name.startswith("minimal"):
+        return minimal_adapter(name)
+    return double_adapter(name.removeprefix("double-"))
 
 
 def evaluate(configure, runner, vcell, keys, supply, settings) -> list[dict]:
@@ -190,9 +190,8 @@ def main() -> None:
     strains = "--strains" in sys.argv
     args = [a for a in sys.argv[1:] if a != "--strains"]
     out = OUT_STRAINS if strains else OUT
-    names = args or ["v0", "v1", "g-none", "g-coupled", "g-photoacclimation",
-                     "g-capacity", "v3-drain", "v3-proteome", "v3-drain-cap",
-                     "v3-proteome-cap"]  # fmt: skip
+    names = args or ["single-legacy", "single-fixed", "double-none", "double-coupled",
+                     "minimal-m0", "minimal-m0-cap"]  # fmt: skip
     results = json.loads(out.read_text()) if out.exists() else {}
     for name in names:
         t = time.perf_counter()

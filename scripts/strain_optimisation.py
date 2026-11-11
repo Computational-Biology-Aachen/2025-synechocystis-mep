@@ -13,10 +13,10 @@ steady-state squalene content; then it is rejected (`rejected`) and the next one
 If none is left, the sequence stops (`stop`). The first round is the answer to
 "which single overexpression is best".
 
-Overexpression is a fold change of the enzyme (v0/v1: its synthesis rate, thread g:
-its level): fold = 1 + 1.331057 kDa / (2 E0) with E0 the legacy (2 fL) proteomics
-concentration [µM]. For v0 this equals the notebook's additive
-`ksynth + 1.331057 kDa / (5.5 h)` exactly. Thread g's lumped MEP chain gets the
+Overexpression is a fold change of the enzyme (`single`: its synthesis rate, `double`
+and `minimal`: its level): fold = 1 + 1.331057 kDa / (2 E0) with E0 the legacy (2 fL) proteomics
+concentration [µM]. For single-legacy this equals the notebook's additive
+`ksynth + 1.331057 kDa / (5.5 h)` exactly. The lumped MEP chain (`double`, `minimal`) gets the
 geometric mean of the chain enzymes' folds (caveat: that's several genes).
 
 Conditions as in the notebook: steady growth (fixed cell density, 1e7 cells mL^-1),
@@ -48,7 +48,7 @@ M_SQUALENE = 410.73  # [g mol^-1]
 
 LEGACY_ENZYMES = ("DXS", "ThiG", "DXR", "IspD", "IspE", "IspF", "IspG", "IspH",
                   "Idi", "CrtE", "Sqs", "Shc", "ChlP", "CrtB", "ChlG")  # fmt: skip
-G_ENZYMES = {  # thread-g lump -> legacy enzymes it stands for
+G_ENZYMES = {  # lump (`double`, `minimal`) -> legacy enzymes it stands for
     "DXS": ("DXS",),
     "MEP": ("DXR", "IspD", "IspE", "IspF", "IspG", "IspH"),
     "CrtE": ("CrtE",),
@@ -84,44 +84,44 @@ class Variant:
 def variants(selected: list[str]) -> list[Variant]:
     folds = legacy_folds()
     out = []
-    if "v0" in selected:
-        from synmep.models import v0_faithful
+    if "single-legacy" in selected:
+        from synmep.models import single_legacy
 
-        m = v0_faithful.get_model(load_legacy_inputs(), "dshc", "steady")
+        m = single_legacy.get_model(load_legacy_inputs(), "dshc", "steady")
         pars = {f"{e}_ksynth": f for e, f in folds.items()
                 if f"{e}_ksynth" in m.get_parameter_names()}  # fmt: skip
-        out.append(Variant("v0", m, pars, "v_Sqs", "v_Biomass", NATIVE_RUNNER,
+        out.append(Variant("single-legacy", m, pars, "v_Sqs", "v_Biomass", NATIVE_RUNNER,
                            lambda r: r["v_Sqs"] / r["Growth_rate"]))  # fmt: skip
-    if "v1" in selected:
-        from synmep.data_v1 import load_inputs
-        from synmep.models import v1_fixed
+    if "single-fixed" in selected:
+        from synmep.data_single_fixed import load_inputs
+        from synmep.models import single_fixed
 
-        m = v1_fixed.get_model(load_inputs(), "dshc", "steady")
+        m = single_fixed.get_model(load_inputs(), "dshc", "steady")
         pars = {f"{e}_ksynth": f for e, f in folds.items()
                 if f"{e}_ksynth" in m.get_parameter_names()}  # fmt: skip
-        out.append(Variant("v1", m, pars, "v_Sqs", "v_Biomass", SUNDIALS_RUNNER,
+        out.append(Variant("single-fixed", m, pars, "v_Sqs", "v_Biomass", SUNDIALS_RUNNER,
                            lambda r: r["v_Sqs"] / r["Growth_rate"]))  # fmt: skip
-    from synmep.models import g_coupled
+    from synmep.models import double
 
-    for v in ("none", "coupled", "photoacclimation", "capacity"):
-        if f"g-{v}" not in selected:
+    for v in ("none", "coupled"):
+        if f"double-{v}" not in selected:
             continue
-        m = g_coupled.get_model(load_legacy_inputs(), v)  # type: ignore[arg-type]
-        pars = g_folds(folds)
-        out.append(Variant(f"g-{v}", m, pars, "v_sq", "v_bio", NATIVE_RUNNER,
+        m = double.get_model(load_legacy_inputs(), v)  # type: ignore[arg-type]
+        pars = lump_folds(folds)
+        out.append(Variant(f"double-{v}", m, pars, "v_sq", "v_bio", NATIVE_RUNNER,
                            lambda r: r["v_sq"] / r["mu"]))  # fmt: skip
-    from synmep.models import v3_minimal
+    from synmep.models import minimal
 
-    for name in v3_minimal.VARIANTS:
+    for name in minimal.VARIANTS:
         if name not in selected:
             continue
-        m = v3_minimal.get_model(load_legacy_inputs(), **v3_minimal.variant(name))
-        out.append(Variant(name, m, g_folds(folds), "v_sq", "v_bio", NATIVE_RUNNER,
+        m = minimal.get_model(load_legacy_inputs(), **minimal.variant(name))
+        out.append(Variant(name, m, lump_folds(folds), "v_sq", "v_bio", NATIVE_RUNNER,
                            lambda r: r["v_sq"] / r["mu"]))  # fmt: skip
     return out
 
 
-def g_folds(folds: dict[str, float]) -> dict[str, float]:
+def lump_folds(folds: dict[str, float]) -> dict[str, float]:
     return {
         f"E_{lump}": float(np.exp(np.mean([np.log(folds[e]) for e in members])))
         for lump, members in G_ENZYMES.items()
@@ -203,9 +203,8 @@ def optimise(v: Variant) -> dict:
 
 
 def main() -> None:
-    all_variants = ["v0", "v1", "g-none", "g-coupled", "g-photoacclimation",
-                    "g-capacity", "v3-drain", "v3-proteome", "v3-drain-cap",
-                    "v3-proteome-cap"]  # fmt: skip
+    all_variants = ["single-legacy", "single-fixed", "double-none", "double-coupled",
+                    "minimal-m0", "minimal-m0-cap"]  # fmt: skip
     selected = sys.argv[1:] or all_variants
     results = json.loads(OUT.read_text()) if OUT.exists() else {}
     for v in variants(selected):

@@ -23,7 +23,7 @@ from synmep.legacy_data import (
 
 DATA = Path(__file__).resolve().parents[2] / "data"
 
-# Legacy constants (ADR 0002, docs/assumptions.md); values unchanged for v0.
+# Legacy constants (ADR 0002, docs/assumptions.md); values unchanged for single-legacy.
 CELL_VOLUME = 2e-15  # [L cell^-1]
 PROTEIN_CONTENT = 0.445  # [g protein g(DW)^-1]
 CELLS_PER_OD_ML = 105482164.18012363  # [cells mL^-1 OD^-1]

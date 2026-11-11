@@ -18,27 +18,34 @@ import pandas as pd
 
 RES = Path("docs/reports/productivity.json")
 FIG = Path("docs/reports/figures")
-ORDER = ["v0", "v1", "g-none", "g-coupled", "g-photoacclimation", "g-capacity"]
-# --v3: the minimal-model variants next to their thread-g parents, separate figures
-ORDER_V3 = [
-    "g-coupled",
-    "g-capacity",
-    "v3-drain",
-    "v3-proteome",
-    "v3-drain-cap",
-    "v3-proteome-cap",
+ORDER = [
+    "single-legacy",
+    "single-fixed",
+    "double-none",
+    "double-coupled",
+    "double-photoacclimation",
+    "double-capacity",
 ]
-V3 = "--v3" in sys.argv
-PIGMENT_TRADE_OFF = {"v0": True, "v1": True, "g-none": True, "g-coupled": True,
-                     "g-photoacclimation": False, "g-capacity": False,
-                     "v3-drain": True, "v3-proteome": True, "v3-drain-cap": True,
-                     "v3-proteome-cap": True}  # fmt: skip
-SUFFIX = "-v3" if V3 else ""
+# --minimal: the minimal variants next to their `double` parents, separate figures
+ORDER_MINIMAL = [
+    "double-coupled",
+    "double-capacity",
+    "minimal-m0-drain",
+    "minimal-m0",
+    "minimal-m0-drain-cap",
+    "minimal-m0-cap",
+]
+MINIMAL = "--minimal" in sys.argv
+PIGMENT_TRADE_OFF = {"single-legacy": True, "single-fixed": True, "double-none": True, "double-coupled": True,
+                     "double-photoacclimation": False, "double-capacity": False,
+                     "minimal-m0-drain": True, "minimal-m0": True, "minimal-m0-drain-cap": True,
+                     "minimal-m0-cap": True}  # fmt: skip
+SUFFIX = "-minimal" if MINIMAL else ""
 
 
 def main() -> None:
     res = json.loads(RES.read_text())
-    variants = [v for v in (ORDER_V3 if V3 else ORDER) if v in res]
+    variants = [v for v in (ORDER_MINIMAL if MINIMAL else ORDER) if v in res]
     grids = {v: pd.DataFrame(res[v]["grid"]) for v in variants}
 
     fig, axes = plt.subplots(1, len(variants), figsize=(3.3 * len(variants), 3.2),

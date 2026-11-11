@@ -1,4 +1,4 @@
-"""Legacy rate laws, copied verbatim from the legacy `kinetics.py` (v0 only).
+"""Legacy rate laws, copied verbatim from the legacy `kinetics.py` (single-legacy only).
 
 modelbase rate functions are inlined below. Known bugs are kept on purpose (ADR 0002):
 B4 `DXS_na` mixes µM and mM, B5 `v_sqs` has an inverted mass-action ratio,

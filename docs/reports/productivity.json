@@ -1,5 +1,5 @@
 {
- "v0": {
+ "single-legacy": {
   "grid": [
    {
     "sqs_factor": 0.1,
@@ -1933,7 +1933,7 @@
   "cell_volume": 2e-15,
   "wall_s": 196.1682715040006
  },
- "g-none": {
+ "double-none": {
   "grid": [
    {
     "sqs_factor": 0.1,
@@ -3723,7 +3723,7 @@
   "cell_volume": 4e-15,
   "wall_s": 100.67958353400172
  },
- "g-coupled": {
+ "double-coupled": {
   "grid": [
    {
     "sqs_factor": 0.1,
@@ -5813,7 +5813,7 @@
   "cell_volume": 4e-15,
   "wall_s": 136.24345059999905
  },
- "g-photoacclimation": {
+ "double-photoacclimation": {
   "grid": [
    {
     "sqs_factor": 0.1,
@@ -7999,7 +7999,7 @@
   "cell_volume": 4e-15,
   "wall_s": 81.1148920170017
  },
- "g-capacity": {
+ "double-capacity": {
   "grid": [
    {
     "sqs_factor": 0.1,
@@ -10095,7 +10095,7 @@
   "cell_volume": 4e-15,
   "wall_s": 80.93487232900225
  },
- "v1": {
+ "single-fixed": {
   "grid": [
    {
     "sqs_factor": 0.1,
@@ -12309,7 +12309,7 @@
   "cell_volume": 4e-15,
   "wall_s": 245.39612443499936
  },
- "v3-drain": {
+ "minimal-m0-drain": {
   "grid": [
    {
     "sqs_factor": 0.1,
@@ -14429,7 +14429,7 @@
   "cell_volume": 4e-15,
   "wall_s": 81.69862747200386
  },
- "v3-proteome": {
+ "minimal-m0": {
   "grid": [
    {
     "sqs_factor": 0.1,
@@ -16549,7 +16549,7 @@
   "cell_volume": 4e-15,
   "wall_s": 36.97653767400334
  },
- "v3-drain-cap": {
+ "minimal-m0-drain-cap": {
   "grid": [
    {
     "sqs_factor": 0.1,
@@ -18495,7 +18495,7 @@
   "cell_volume": 4e-15,
   "wall_s": 41.773814871994546
  },
- "v3-proteome-cap": {
+ "minimal-m0-cap": {
   "grid": [
    {
     "sqs_factor": 0.1,

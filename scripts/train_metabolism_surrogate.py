@@ -1,4 +1,4 @@
-"""Train the metabolism QSS surrogate from the g_metabolism ODE model (ADR 0004).
+"""Train the metabolism QSS surrogate from the metabolism ODE model (ADR 0004).
 
     uv run python scripts/train_metabolism_surrogate.py [--pigment-coupling C]
 
@@ -6,7 +6,7 @@ With C > 0 (pigment regulation variant A) the outputs go to *_pc<C>.json.
 
 Supply inputs are *physically produced* pairs: (J_3PGA, J_ATP, Chl) triples from the
 PETC training data (culture states pushed through the light model and pfennig2024)
-times a PETC efficiency factor (0.3-10x, fitted in g_growth):
+times a PETC efficiency factor (0.3-10x, fitted in double_growth):
 S = J × Chl × 0.06 × petc_scale. Sampling S_PGA and S_ATP independently (or with a
 fixed ratio band) left real operating points outside the training data (ADR 0004).
 The CrtE level is sampled 0.01-3x WT (Fig 11 knock-down); all other enzymes are at WT
@@ -27,7 +27,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from synmep.models.g_metabolism import (
+from synmep.models.metabolism import (
     SUPPLIES,
     SURROGATE_OUTPUTS,
     get_model,
@@ -41,7 +41,9 @@ N_SAMPLES = 4000
 DEGREES = (3, 4, 5, 6)
 PETC_SCALE_RANGE = (0.3, 10.0)
 SEED = 0
-S_PGA_FLOOR = 1e-3  # [mM min^-1] as in g_growth (net respiration at very low light)
+S_PGA_FLOOR = (
+    1e-3  # [mM min^-1] as in double_growth (net respiration at very low light)
+)
 S_ATP_FLOOR = 1e-3
 # An 8-input surrogate (all enzyme levels 0.1-10x) reached only ~10-14 % median /
 # ~50 % p95 relative error (degree 4, 6000 samples). Fig 12 (MCA over all enzymes) uses

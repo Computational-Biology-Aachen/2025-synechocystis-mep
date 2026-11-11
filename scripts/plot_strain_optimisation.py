@@ -18,17 +18,24 @@ import seaborn as sns
 
 RES = Path("docs/reports/strain-optimisation.json")
 FIG = Path("docs/reports/figures/strain-optimisation.png")
-ORDER = ["v0", "v1", "g-none", "g-coupled", "g-photoacclimation", "g-capacity"]
-# --v3: the minimal-model variants next to their thread-g parents, separate figures
-ORDER_V3 = [
-    "g-coupled",
-    "g-capacity",
-    "v3-drain",
-    "v3-proteome",
-    "v3-drain-cap",
-    "v3-proteome-cap",
+ORDER = [
+    "single-legacy",
+    "single-fixed",
+    "double-none",
+    "double-coupled",
+    "double-photoacclimation",
+    "double-capacity",
 ]
-V3 = "--v3" in sys.argv
+# --minimal: the minimal variants next to their `double` parents, separate figures
+ORDER_MINIMAL = [
+    "double-coupled",
+    "double-capacity",
+    "minimal-m0-drain",
+    "minimal-m0",
+    "minimal-m0-drain-cap",
+    "minimal-m0-cap",
+]
+MINIMAL = "--minimal" in sys.argv
 
 
 def name(p: str) -> str:
@@ -37,7 +44,7 @@ def name(p: str) -> str:
 
 def main() -> None:
     res = json.loads(RES.read_text())
-    variants = [v for v in (ORDER_V3 if V3 else ORDER) if v in res]
+    variants = [v for v in (ORDER_MINIMAL if MINIMAL else ORDER) if v in res]
     fig, axes = plt.subplots(
         2, len(variants), figsize=(3.2 * len(variants), 7), layout="constrained",
         height_ratios=(3, 1), squeeze=False,
@@ -89,7 +96,7 @@ def main() -> None:
             "μ end [1/h]": round(rounds[-1]["growth_rate_per_h"], 4),
         })  # fmt: skip
     FIG.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(FIG.with_stem(FIG.stem + "-v3") if V3 else FIG, dpi=100)
+    fig.savefig(FIG.with_stem(FIG.stem + "-minimal") if MINIMAL else FIG, dpi=100)
     print(pd.DataFrame(rows).to_markdown(index=False))
 
 

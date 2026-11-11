@@ -25,7 +25,7 @@ import pandas as pd
 from mxlpy import scan
 
 from synmep.data import load_legacy_inputs
-from synmep.models.g_growth import get_model as get_growth_model
+from synmep.models.double_growth import get_model as get_growth_model
 from synmep.petc.pfennig import LIGHT_INPUTS, OUTPUTS, get_petc_model, outputs
 from synmep.runners import NATIVE_RUNNER
 from synmep.surrogates.petc_legacy import evaluate_light
@@ -48,7 +48,7 @@ DEPTH_RANGE = (0.005, 0.03)  # [m]
 PBS_SCALE_RANGE = (
     0.25,
     4.0,
-)  # [-] phycobiliprotein content factor (fitted in g_growth)
+)  # [-] phycobiliprotein content factor (fitted in double_growth)
 
 
 def light_parameters() -> dict[str, float]:

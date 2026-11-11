@@ -4,7 +4,7 @@ Faithful re-expression of the legacy `get_influx_rate_estimations` pipeline
 (pandas + scipy.simpson + pickled sklearn polynomial). Spectral data and Simpson
 weights are baked in as constants, because mxlpy's native integrator couldn't lower
 model data (`add_data`) before 0.69 (MxlPy#201). Now it could; the constants are kept,
-since v0 is regression-tested against the legacy outputs in this form.
+since single-legacy is regression-tested against the legacy outputs in this form.
 
 Wavelength integrals use composite Simpson weights on the 1 nm grid (400-700 nm),
 exactly what `scipy.integrate.simpson(y)` (dx = 1) computes.
@@ -48,8 +48,8 @@ def petc_expressions(inp: LegacyInputs, s: Symbols) -> dict[str, sp.Expr]:
     """Light model (`light_expressions`) plus the raw legacy PETC surrogate outputs.
 
     Adds `vATP_prod_raw`, `vNADPH_prod_raw`, `v3PGA_prod_raw`, `vFdred_prod_raw`
-    [mmol mol(Chl)^-1 s^-1], unclipped. The legacy scalar path clips them at zero; v0
-    does that with `synmep.exprfn.clip_zero`.
+    [mmol mol(Chl)^-1 s^-1], unclipped. The legacy scalar path clips them at zero;
+    single-legacy does that with `synmep.exprfn.clip_zero`.
     """
     out = light_expressions(inp, s)
     out |= polynomial_expressions(

@@ -1,4 +1,4 @@
-# Lessons learned (input for v3 minimisation)
+# Lessons learned (input for the minimal family)
 
 Running list kept while working on stages 0–2. Each entry: observation → implication
 for the minimal model.
@@ -12,13 +12,13 @@ for the minimal model.
   of chlorophyll synthesis only set μ, not Chl. → In a minimal model μ can be expressed
   directly as a function of the MEP-pathway flux into Chl. The Chl pool dynamics matter
   only for transients and self-shading.
-- **The biomass drain is negligible in v0** (~0.01 % of 3PGA); cofactor pools are set by
+- **The biomass drain is negligible in single-legacy** (~0.01 % of 3PGA); cofactor pools are set by
   surrogate supply vs. arbitrary first-order `*_out_metabolism` sinks. → The four
   cofactor ODEs (ATP, NADPH, Fdred, 3PGA) mostly reproduce `supply/k_out`. They are
   candidates for algebraic elimination, but only once the biomass drain is corrected
   (that correction can make cofactors growth-limiting).
 - **Fast intermediates** (HMB_PP, GPP, DMAPP, IPP: 15–150 min^-1) vs. growth
-  (7.7e-4 min^-1): stiffness ratio ≈ 2.3e5. → Natural QSS candidates (supports v2a).
+  (7.7e-4 min^-1): stiffness ratio ≈ 2.3e5. → Natural QSS candidates (supports the timescale split, later the `double` family).
 - **Prenyl intermediates are tiny** (µM range) and only pass flux on. → Linear-chain
   lumping candidates (DXP→…→HMB_PP; GPP→FPP).
 - **Enzymes relax at the dilution rate** (all ≈ 7.7e-4 min^-1 diagonal), so they are slow
@@ -32,12 +32,12 @@ for the minimal model.
   (~2 at zero light). → A minimal model needs two supply terms (ATP, "biomass
   precursor flux"), not four.
 - **Every observed failure came from surrogate extrapolation**, not intrinsic stiffness.
-  → Any surrogate (including the v2 ones) must ship with its training domain and be
+  → Any surrogate (including those of the `double` family) must ship with its training domain and be
   bounded/smooth outside it. Prefer low-degree or monotone forms over degree-7 polynomials.
 
 ## Stage 1 — port
 
-- **v0 has 195 used parameters** (of 1410 legacy ones). `get_unused_parameters()` is a
+- **single-legacy has 195 used parameters** (of 1410 legacy ones). `get_unused_parameters()` is a
   cheap first cut for any variant.
 - **Native compile cost scales with expression size.** The 301-wavelength sums and
   4 × 792-term polynomials take ~20 s to compile. → A minimal model should use a small
@@ -51,7 +51,7 @@ for the minimal model.
   changes (e.g. the Fig 11 CrtE knock-down) into later runs. → Use `scan.*` (protocols,
   time courses, steady states) for repeated runs, or a fresh model per run.
 
-## Thread "g" (ground-up model)
+## `double` family (ground-up model)
 
 - **Growth from the carbon balance works without fitting the magnitude**: PETC 3PGA supply
   per g dry weight vs. the biomass stoichiometry gives μ ≈ 0.03 h^-1, the observed batch
@@ -69,32 +69,34 @@ for the minimal model.
 - Global polynomials hit their limits at limitation switches (p95 errors 15–20 % even
   in 3D). → For the minimal model, prefer closed-form saturating functions with few
   parameters over polynomial surrogates.
-- **Constant pigment contents fit the batch data best** (variant B fitted acclimation
-  strength → 0). → The minimal model can drop pigment dynamics entirely (Chl, Car as
+- **Constant pigment contents fit the batch data best** (`double-photoacclimation` fitted
+  acclimation strength → 0). → The minimal model can drop pigment dynamics entirely (Chl, Car as
   parameters), keeping only self-shading through cell density.
 - **The early growth rise is not explained by pigments.** → If the minimal model must
   capture it, it needs a slow photosynthetic-capacity state, not pigment states.
+  (Revised by `minimal-m0`: a strong growth coupling of pigment synthesis does reproduce
+  the rise, report 06; untested against pigment data.)
 - **Depth resolution matters more than PETC detail**: it removed a 5x supply factor.
-- **Strain-optimisation advice is model-dependent but robust within thread g**: v0 →
-  IspG, v1 → DXS, every thread-g variant → Sqs, CrtE, MEP, DXS. → For the minimal model,
+- **Strain-optimisation advice is model-dependent but robust within `double`**: single-legacy →
+  IspG, single-fixed → DXS, every `double` variant → Sqs, CrtE, MEP, DXS. → For the minimal model,
   keep Sqs, CrtE (FPP/GGPP branch point) and DXS explicit; the MEP chain can stay lumped.
 - **Capacity acclimation explains more of the batch than pigment acclimation**, with a
   slow (~100 h) timescale.
 - **The culture-level squalene optimum only exists in variants where pigments feed back
-  on growth** (v0, v1, g-none, g-coupled: optimum at 100–460x Sqs, ~1e9 cells/mL);
-  fixed-pigment variants (B, C) saturate instead. → The minimal model must keep the
+  on growth** (single-legacy, single-fixed, double-none, double-coupled: optimum at 100–460x Sqs, ~1e9 cells/mL);
+  fixed-pigment variants (`double-photoacclimation`, `double-capacity`) saturate instead. → The minimal model must keep the
   FPP/GGPP competition and a pigment → light-harvesting → growth link; pigment contents
   can't simply be parameters if the trade-off question is to be answered (contrast with
   the batch fit, which preferred constant pigments).
-- **Enzyme cost is missing in thread g** and would bound the optimum more tightly.
+- **Enzyme cost is missing in `double`** and would bound the optimum more tightly.
 - **MCA picks and culture productivity agree on the first 2–4 overexpressions, not on
   when to stop**: later MCA picks reduce productivity at the productive high densities.
   → Optimise strains against the culture objective directly (or use MCA only for the
   ranking and the productivity scan for the stopping point).
-- **Best realistic thread-g strain: Sqs + CrtE (+ MEP chain, DXS)**, 0.4–0.65 mg/L/h,
+- **Best realistic `double` strain: Sqs + CrtE (+ MEP chain, DXS)**, 0.4–0.65 mg/L/h,
   about half the free squalene synthase optimum.
 
-## Minimal model v3 (ADR 0005, report 06)
+## `minimal-m0` (ADR 0005, report 06)
 
 - **The gravimetric dry weight was the inconsistent number**: it contains only 22 %
   protein. Dry weight from the measured protein (464 g L^-1) is consistent with 4 fL and
@@ -109,15 +111,15 @@ for the minimal model.
 - **Enzyme-cost formulation is immaterial at realistic overexpression** (< 0.3 % in
   productivity): pigment adjustment compensates. It would matter only at > 10^3× levels.
 - **Capacity acclimation changes the productivity answer by 3×** and moves the best
-  density to practical values; without it v3 says "as dense as possible".
+  density to practical values; without it minimal-m0 says "as dense as possible".
 
 ## MCA strain optimisation with positive control only
 
 - **Only take a step whose control is positive** (summed response > 0 and intracellular
-  squalene response > 0): the sequences then stop by themselves after 3–5 steps (thread g,
-  v3), instead of ending with pigment-enzyme steps that lower squalene.
+  squalene response > 0): the sequences then stop by themselves after 3–5 steps (`double`,
+  minimal-m0), instead of ending with pigment-enzyme steps that lower squalene.
 - **Local control can mislead for large overexpression steps** (folds up to ~300×): in
-  v0, v1 and g-none, enzymes with positive response coefficients lowered the squalene
+  single-legacy, single-fixed and double-none, enzymes with positive response coefficients lowered the squalene
   content once overexpressed. → Check the realised step, not only the coefficient.
 
 ## mxlpy 0.69 re-check (report 07)
@@ -125,7 +127,7 @@ for the minimal model.
 - **The four filed issues are fixed upstream**; the `exprfn` re-homing workaround is
   reduced to a wrapper around mxlpy's `compile_fn`, which also compiles 1.5–2× faster.
 - **Generated functions need a `__module__`**, otherwise every pickle (each parallel
-  task) searches `sys.modules` for them: 1.2 s vs 0.02 s per v3 model.
+  task) searches `sys.modules` for them: 1.2 s vs 0.02 s per minimal-m0 model.
 - **For models that solve in milliseconds, serial scans beat parallel ones** by far:
   pool start-up (tens of seconds with 22 workers) dominates. Parallel only pays off for
   expensive points.
