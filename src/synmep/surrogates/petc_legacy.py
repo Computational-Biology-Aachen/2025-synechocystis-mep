@@ -226,19 +226,21 @@ def evaluate_light(
     outputs: tuple[str, ...] = ("complex_abs_ps1", "complex_abs_ps2", "complex_abs_pbs",
                                 "light_ocp"),
     step: int = 1,
+    channels: dict[str, np.ndarray] | None = None,
 ) -> pd.DataFrame:  # fmt: skip
     """Vectorised evaluation of `light_expressions` for many states at once.
 
     `states` and `parameters` together must provide every field of `Symbols` (the
     column/key names are the field names: chl, carotenoids, cell_density [cells nL^-1],
     light, ...). With a `z` column, the local light at depth z [m] is used instead of
-    the depth average.
+    the depth average. With `channels`, `states` needs a column `w_<name>` per channel.
     """
     exprs = light_expressions(
         inp,
         Symbols(**{f: f for f in Symbols.__dataclass_fields__}),
         depth="z" if "z" in states else None,
         step=step,
+        channels=channels,
     )
     env: dict[str, np.ndarray | float] = {c: states[c].to_numpy(float) for c in states}
     env |= {k: v for k, v in parameters.items() if k not in env}
