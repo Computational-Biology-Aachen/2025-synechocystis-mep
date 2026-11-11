@@ -1,6 +1,5 @@
 """`full` family (ADR 0006 §2.5): structure and a dilute steady state."""
 
-import pytest
 
 from synmep import evaluate, variants
 from synmep.data import load_legacy_inputs
