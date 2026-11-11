@@ -56,6 +56,7 @@ def get_model(
     spectral_step: int = 5,
     light_channels: tuple[str, ...] | None = None,
     capacity: bool = False,
+    chromatic: bool = False,
 ) -> Model:
     m = metabolism.get_model(pigment_coupling=1.0 if variant == "coupled" else 0.0)
     m.remove_parameters(["S_PGA", "S_ATP"])
@@ -96,8 +97,15 @@ def get_model(
         depth_nodes, spectral_step, light_channels,
     )  # fmt: skip
     chl, scale = sp.Symbol("Chl"), sp.Symbol("petc_scale")
+    if chromatic:
+        m.add_parameters(acclimation.CHROMATIC)
+        exprs |= acclimation.chromatic_expressions()
+        if "k_relax" not in m.get_parameter_names():
+            m.add_parameter("k_relax", 1.0)
     if capacity:
-        m.add_parameters(acclimation.PARAMETERS | {"k_relax": 1.0})
+        if "k_relax" not in m.get_parameter_names():
+            m.add_parameter("k_relax", 1.0)
+        m.add_parameters(acclimation.PARAMETERS)
         exprs |= acclimation.target_expressions()
         scale = scale * sp.Symbol("Cap")
     exprs["S_PGA"] = sp.Max(
@@ -119,4 +127,6 @@ def get_model(
         )
     if capacity:  # steady state only: fast relaxation, same fixed point
         acclimation.add_state(m, "k_relax")
+    if chromatic:
+        acclimation.add_chromatic_state(m, "k_relax")
     return m

@@ -138,14 +138,16 @@ def petc_supply_expressions(
                 exprs[pre + out] = expr * sp.Min(1, rel)
                 j[out].append(float(w / 2) * sp.Symbol(pre + out))
         exprs |= {out: sp.Add(*terms) for out, terms in j.items()}
-        exprs["complex_abs_ps1_mean"] = sp.Add(
-            *(
-                float(w / 2) * sp.Symbol(f"z{i}_complex_abs_ps1")
-                for i, w in enumerate(weights)
+        for c in ("ps1", "ps2", "pbs"):
+            exprs[f"complex_abs_{c}_mean"] = sp.Add(
+                *(
+                    float(w / 2) * sp.Symbol(f"z{i}_complex_abs_{c}")
+                    for i, w in enumerate(weights)
+                )
             )
-        )
     if depth_nodes == 0:
-        exprs["complex_abs_ps1_mean"] = sp.Symbol("complex_abs_ps1")
+        for c in ("ps1", "ps2", "pbs"):
+            exprs[f"complex_abs_{c}_mean"] = sp.Symbol(f"complex_abs_{c}")
     return exprs
 
 
@@ -160,6 +162,7 @@ def get_model(
     light_channels: tuple[str, ...] | None = None,
     capacity: bool = False,
     folds: dict[str, float] | None = None,
+    chromatic: bool = False,
 ) -> Model:
     """Growth model.
 
@@ -222,6 +225,9 @@ def get_model(
         m.add_parameters(acclimation.PARAMETERS)
         exprs |= acclimation.target_expressions()
         scale = scale * sp.Symbol("Cap")
+    if chromatic:
+        m.add_parameters(acclimation.CHROMATIC)
+        exprs |= acclimation.chromatic_expressions()
     exprs["S_PGA"] = sp.Max(
         sp.Symbol("J_3PGA") * chl * 0.06 * scale, sp.Symbol("S_PGA_floor")
     )
@@ -246,6 +252,10 @@ def get_model(
     rate = "mu" if growth_mode == "dynamic" else "k_relax"
     if capacity:
         acclimation.add_state(m, None if growth_mode == "dynamic" else "k_relax")
+    if chromatic:
+        acclimation.add_chromatic_state(
+            m, None if growth_mode == "dynamic" else "k_relax"
+        )
     for state in ("Chl", "Car", "SQ"):
         m.add_reaction(
             f"net_{state}",

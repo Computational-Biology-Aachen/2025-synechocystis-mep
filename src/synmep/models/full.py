@@ -37,6 +37,7 @@ import numpy as np
 import sympy as sp
 from mxlpy import Derived, Model
 
+from synmep import acclimation
 from synmep import light as light_sources
 from synmep.data import LegacyInputs
 from synmep.exprfn import expr_fn
@@ -80,6 +81,10 @@ def to_mM(x_per_chl: float, chl: float) -> float:
 def ngam_rate(atp: float, ngam: float, rho_dw: float, km: float) -> float:
     """[mM min^-1] maintenance ATP use, ngam [mmol gDW^-1 h^-1] x rho_DW, saturating."""
     return ngam / 60 * rho_dw * atp / (km + atp)
+
+
+def rate_per_s(tau_min: float, speed: float) -> float:
+    return speed / (60 * tau_min)
 
 
 def slow_dilution(x: float, mu: float, speed: float) -> float:
@@ -153,6 +158,7 @@ def get_model(
     soluble_per_cell: bool = False,
     biomass_atp: float = BIOMASS_ATP,
     km_bio_nadph_factor: float = KM_BIO_NADPH_FACTOR,
+    chromatic: bool = False,
 ) -> Model:
     dynamic = growth_mode == "dynamic"
     pf = get_petc_model(clamp_pga=False)
@@ -243,9 +249,21 @@ def get_model(
             step=spectral_step,
             channels=ch,
         )
+    for c in ("ps1", "ps2", "pbs"):  # layer means (acclimation rules)
+        exprs[f"complex_abs_{c}_mean"] = sp.Add(
+            *(float(w[i]) * sp.Symbol(f"z{i}_complex_abs_{c}") for i in range(layers))
+        )
+    if chromatic:
+        m.add_parameters(acclimation.CHROMATIC)
+        exprs |= acclimation.chromatic_expressions()
     for name, expr in exprs.items():
         fn, args = expr_fn(expr, origin=name)
         m.add_derived(name, fn=fn, args=args)
+    if chromatic:
+        m.add_derived(
+            "chromatic_rate", fn=rate_per_s, args=["chromatic_tau", "slow_speedup"]
+        )
+        acclimation.add_chromatic_state(m, "chromatic_rate")
 
     # per layer: pfennig2024 copy and the metabolism's fast pools
     met_reactions = met.get_raw_reactions()

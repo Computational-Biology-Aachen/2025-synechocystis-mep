@@ -360,13 +360,20 @@ def calibrate_chromatic(
 
     ref = dict(CHROMATIC_REFERENCE)
     n = ref.pop("density")
-    m = steady_model(fixed, {}, n, light_channels=light_channels, pars=pars, **ref)
+    # same model as the batch (and its pre-culture), so warm white keeps the ratio there
+    m = steady_model(
+        fixed, {}, n, light_channels=light_channels, pars=pars,
+        mode=fixed.preculture_mode, **ref,
+    )  # fmt: skip
     m.update_parameters(dict(weights or {}))
     row = steady_state(fixed, m)
     if row is None:
         msg = f"{fixed.name}: no reference steady state"
         raise RuntimeError(msg)
-    mc = steady_model(chromatic, {}, n, light_channels=light_channels, pars=pars, **ref)
+    mc = steady_model(
+        chromatic, {}, n, light_channels=light_channels, pars=pars,
+        mode=chromatic.preculture_mode, **ref,
+    )  # fmt: skip
     mc.update_parameters(dict(weights or {}))
     y = {k: float(row[k]) for k in mc.get_variable_names() if k in row.index}
     y["ps_ratio"] = float(m.get_parameter_values()["ps_ratio"])

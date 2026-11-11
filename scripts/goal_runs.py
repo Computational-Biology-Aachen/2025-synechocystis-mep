@@ -119,7 +119,7 @@ def main() -> None:
         "best_strain": list(best_strain),
         "spectra": spectra_runs(a, best_strain, counts["spectra"]),
     }
-    if name.startswith("minimal-"):  # chromatic acclimation available
+    if not name.startswith("single-"):  # chromatic acclimation available
         ca = variants.adapter(f"{name}+ca")
         ref = evaluate.calibrate_chromatic(
             a,

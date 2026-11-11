@@ -1,7 +1,7 @@
 """Registry of the model variants in the comparison (ADR 0006 §2.3).
 
 `adapter(name)` returns the `synmep.evaluate.Adapter` of a variant; the suffix `+ca`
-adds chromatic acclimation (`minimal` so far, ADR 0006 §2.6). The `double`
+adds chromatic acclimation (`double`, `minimal`, `full`; ADR 0006 §2.6). The `double`
 batch (and its pre-culture) runs on the growth layer with a per-strain metabolism
 surrogate (trained on first use, ~2 min); its turbidostat and MCA on the metabolism
 ODE.
@@ -92,16 +92,18 @@ def _single(name: str) -> Adapter:
 def _double(name: str) -> Adapter:
     from synmep.models import double, double_growth
 
-    capacity = name.endswith("-cap")
-    variant = name.removeprefix("double-").removesuffix("-cap")
+    chromatic = name.endswith("+ca")
+    name_fit = name.removesuffix("+ca")
+    capacity = name_fit.endswith("-cap")
+    variant = name_fit.removeprefix("double-").removesuffix("-cap")
     inp = load_legacy_inputs()
-    fitted = fit_parameters(name) or double.fitted_parameters(variant)  # type: ignore[arg-type]
+    fitted = fit_parameters(name_fit) or double.fitted_parameters(variant)  # type: ignore[arg-type]
 
     def build(mode, *, light, sample_depth, light_channels=None, folds=None):
         if mode == "turbidostat":
             m = double.get_model(
                 inp, variant, light=light, sample_depth=sample_depth,
-                light_channels=light_channels, capacity=capacity,
+                light_channels=light_channels, capacity=capacity, chromatic=chromatic,
             )  # type: ignore[arg-type]  # fmt: skip
             names = m.get_parameter_names()
             m.update_parameters({k: v for k, v in fitted.items() if k in names})
@@ -109,7 +111,7 @@ def _double(name: str) -> Adapter:
         # batch and its pre-culture: growth layer with the metabolism surrogate
         m = double_growth.get_model(
             inp, mode, pigment_regulation=variant, light_channels=light_channels,
-            capacity=capacity, folds=folds,
+            capacity=capacity, folds=folds, chromatic=chromatic,
         )  # type: ignore[arg-type]  # fmt: skip
         names = m.get_parameter_names()
         m.update_parameters(
@@ -161,14 +163,15 @@ def _full(name: str) -> Adapter:
     from synmep.models import full
 
     inp = load_legacy_inputs()
-    layers = int(name.removeprefix("full-k").split("-")[0])
+    base, chromatic = name.removesuffix("+ca"), name.endswith("+ca")
+    layers = int(base.removeprefix("full-k").split("-")[0])
 
     def build(mode, *, light, sample_depth, light_channels=None):
         m = full.get_model(
             inp, growth_mode=mode, light=light, sample_depth=sample_depth,
-            light_channels=light_channels, layers=layers,
+            light_channels=light_channels, layers=layers, chromatic=chromatic,
         )  # fmt: skip
-        return _with_fit(m, name)
+        return _with_fit(m, base)
 
     return Adapter(
         name=name,
