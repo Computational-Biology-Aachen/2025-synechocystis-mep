@@ -2,8 +2,9 @@
 
 Faithful re-expression of the legacy `get_influx_rate_estimations` pipeline
 (pandas + scipy.simpson + pickled sklearn polynomial). Spectral data and Simpson
-weights are baked in as constants, so the result can be lowered by mxlpy's native
-integrator, which can't handle model data (`add_data`).
+weights are baked in as constants, because mxlpy's native integrator couldn't lower
+model data (`add_data`) before 0.69 (MxlPy#201). Now it could; the constants are kept,
+since v0 is regression-tested against the legacy outputs in this form.
 
 Wavelength integrals use composite Simpson weights on the 1 nm grid (400-700 nm),
 exactly what `scipy.integrate.simpson(y)` (dx = 1) computes.

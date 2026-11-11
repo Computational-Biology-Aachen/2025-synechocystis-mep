@@ -1357,8 +1357,8 @@ dependencies = [
 
 [[package]]
 name = "mxlpy"
-version = "0.68.0"
-source = { registry = "https://pypi.org/simple" }
+version = "0.69.0"
+source = { git = "https://github.com/Computational-Biology-Aachen/MxlPy?rev=3b606f090ac2ef248311630c8d8a398f26e7563d#3b606f090ac2ef248311630c8d8a398f26e7563d" }
 dependencies = [
     { name = "dill" },
     { name = "kiwisolver" },
@@ -1386,10 +1386,6 @@ dependencies = [
     { name = "tqdm" },
     { name = "typing-extensions" },
     { name = "wadler-lindig" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/9e/69/0f6f241b02688356a91009f93b23bfbdf908e429e665cf8a1aa562be1909/mxlpy-0.68.0.tar.gz", hash = "sha256:588bd7154bca41cef09cba2363c8ad2d372415650c9618e8e9d8a748d9377ac3", size = 5718475, upload-time = "2026-11-10T07:34:04.601Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/49/24/4feb30576eb07cb9bd850d891423efd0fd57d28aa7a773bbcf7532e9603b/mxlpy-0.68.0-py3-none-any.whl", hash = "sha256:cb0db74b2255cff17b78a2aa67698bf4fdf9f9a50edeb1d77a9d8417094a60b9", size = 471908, upload-time = "2026-11-10T07:34:02.369Z" },
 ]
 
 [package.optional-dependencies]
@@ -2439,7 +2435,7 @@ dev = [
 requires-dist = [
     { name = "matplotlib", specifier = ">=3.9" },
     { name = "mxlmodels", marker = "extra == 'surrogate'", git = "https://github.com/Computational-Biology-Aachen/mxl-models?rev=eb091337060469dd902b78680c8bfcb5dce3c17d" },
-    { name = "mxlpy", extras = ["sundials", "native"], specifier = ">=0.68.0" },
+    { name = "mxlpy", extras = ["sundials", "native"], git = "https://github.com/Computational-Biology-Aachen/MxlPy?rev=3b606f090ac2ef248311630c8d8a398f26e7563d" },
     { name = "numpy", specifier = ">=2.0" },
     { name = "pandas", specifier = ">=2.2" },
     { name = "scipy", specifier = ">=1.14" },

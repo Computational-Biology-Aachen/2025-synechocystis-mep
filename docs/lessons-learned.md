@@ -119,3 +119,13 @@ for the minimal model.
 - **Local control can mislead for large overexpression steps** (folds up to ~300×): in
   v0, v1 and g-none, enzymes with positive response coefficients lowered the squalene
   content once overexpressed. → Check the realised step, not only the coefficient.
+
+## mxlpy 0.69 re-check (report 07)
+
+- **The four filed issues are fixed upstream**; the `exprfn` re-homing workaround is
+  reduced to a wrapper around mxlpy's `compile_fn`, which also compiles 1.5–2× faster.
+- **Generated functions need a `__module__`**, otherwise every pickle (each parallel
+  task) searches `sys.modules` for them: 1.2 s vs 0.02 s per v3 model.
+- **For models that solve in milliseconds, serial scans beat parallel ones** by far:
+  pool start-up (tens of seconds with 22 workers) dominates. Parallel only pays off for
+  expensive points.

@@ -5,7 +5,7 @@ description = "Kinetic model of terpenoid (squalene) production via the MEP path
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "mxlpy[sundials,native]>=0.68.0",
+    "mxlpy[sundials,native]>=0.69.0",
     "numpy>=2.0",
     "pandas>=2.2",
     "scipy>=1.14",
@@ -35,6 +35,8 @@ exclude-newer-package = { mxlpy = false, mxlpy-native = false, sundials4py = fal
 [tool.uv.sources]
 # PyPI release 1.4.0 predates the pfennig2024 rewrite (PPFD parameter, spectral data).
 mxlmodels = { git = "https://github.com/Computational-Biology-Aachen/mxl-models", rev = "eb091337060469dd902b78680c8bfcb5dce3c17d" }
+# 0.69.0 (unreleased): fixes MxlPy#201-#204 and shares native compiles with scan workers.
+mxlpy = { git = "https://github.com/Computational-Biology-Aachen/MxlPy", rev = "3b606f090ac2ef248311630c8d8a398f26e7563d" }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -2,10 +2,11 @@
 
 Two changes to `mxlmodels.pfennig2024_synechocystis`:
 
-1. Its spectral light handling uses model data, which mxlpy's native runner can't lower
-   (MxlPy#201). It depends only on parameters, so the data-dependent derived quantities
-   are replaced by parameters: light absorbed per complex [µmol(photons) mmol(Chl)^-1
-   s^-1] and OCP light. Fluorescence readouts of the measuring light are dropped.
+1. Its spectral light handling (model data) depends only on parameters, so the
+   data-dependent derived quantities are replaced by parameters: light absorbed per
+   complex [µmol(photons) mmol(Chl)^-1 s^-1] and OCP light. These are the surrogate's
+   inputs. Fluorescence readouts of the measuring light are dropped. (Until mxlpy 0.68
+   this was also needed because Native couldn't lower model data, MxlPy#201.)
 2. 3PGA has no sink besides respiration, so the published model has no steady state
    (3PGA grows linearly). 3PGA is clamped to its default pool, and its net production
    becomes an output. Adding a mass-action biomass drain instead (as the legacy
