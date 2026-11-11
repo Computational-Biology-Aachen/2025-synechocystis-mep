@@ -201,7 +201,7 @@ def batch(
         "mu_per_h": (both[a.keys["mu"]].to_numpy() * 60).tolist(),
         "sq_mM": sq.tolist(),
         "chl_mM": both[a.keys["chl"]].tolist(),
-        "pc_per_chl": (pc_per_chl(a, both)).tolist(),
+        "pc_per_chl": (pc_per_chl(a, both, md)).tolist(),
         "titer_mg_L": titer.tolist(),
         "productivity_mg_L_h": prod.tolist(),
         "best_harvest_h": float(th[best]),
@@ -265,9 +265,14 @@ def _time_course(
     return pd.concat(args), pd.concat(fluxes)
 
 
-def pc_per_chl(a: Adapter, rows: pd.DataFrame) -> np.ndarray:
-    """Phycocyanin : Chl mass ratio [mg mg^-1] (phycocyanin in mg L(cell)^-1)."""
-    pc = rows[a.keys.get("pc", "phycocyanin")].to_numpy()
+def pc_per_chl(a: Adapter, rows: pd.DataFrame, m: Model) -> np.ndarray:
+    """Phycocyanin : Chl mass ratio [mg mg^-1] (phycocyanin in mg L(cell)^-1; a
+    derived value or, in `single`, a parameter)."""
+    key = a.keys.get("pc", "phycocyanin")
+    if key in rows:
+        pc = rows[key].to_numpy()
+    else:
+        pc = np.full(len(rows), m.get_parameter_values()[key])
     return pc / (rows[a.keys["chl"]].to_numpy() * M_CHL)
 
 

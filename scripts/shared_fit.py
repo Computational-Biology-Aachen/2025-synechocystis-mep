@@ -142,18 +142,31 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("variant")
     parser.add_argument("--quick", action="store_true", help="small grid, few steps")
+    parser.add_argument("--start", help="JSON of factors to start from (no grid)")
+    parser.add_argument("--max-nfev", type=int)
     args = parser.parse_args()
     prob = Problem(args.variant)
     k = len(prob.spec)
     rng = np.random.default_rng(0)
     n_grid, n_starts, max_nfev = (6, 1, 15) if args.quick else (16, 2, 40)
     t0 = time.perf_counter()
+    if args.max_nfev:
+        max_nfev = args.max_nfev
     grid = [np.clip(np.zeros(k), prob.lo, prob.hi)]
-    grid += [prob.lo + rng.uniform(size=k) * (prob.hi - prob.lo) for _ in range(n_grid)]
+    if args.start:
+        f0 = json.loads(args.start)
+        grid = [np.log([f0[n] for n in prob.spec])]
+        n_starts = 1
+    else:
+        grid += [
+            prob.lo + rng.uniform(size=k) * (prob.hi - prob.lo) for _ in range(n_grid)
+        ]
     costs = [float(np.sum(prob.residuals(z) ** 2)) for z in grid]
     print(f"{args.variant}: grid {time.perf_counter() - t0:.0f} s, best cost "
           f"{min(costs):.4g}", flush=True)  # fmt: skip
     starts = [grid[i] for i in np.argsort(costs)[:n_starts]]
+    best0 = dict(zip(prob.spec, map(float, np.exp(starts[0])), strict=True))
+    print(f"{args.variant}: best grid factors {json.dumps(best0)}", flush=True)
     fits = [
         least_squares(
             prob.residuals,
