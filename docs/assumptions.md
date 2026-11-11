@@ -82,3 +82,9 @@ in the repo or the paper. These must become named, sourced parameters in single-
 | 0.45 | growth-independent proteome share φ_Q (proteome-cost variant) | – | Scott2010 (E. coli); assumption for Synechocystis |
 | biomass composition | cost of 1 g overexpressed protein (drain-cost variant) | mmol g^-1 | assumption: as 1 g average biomass |
 | closed-form PETC (8 parameters) | J_3PGA = J_max tanh(I/I_k) − r, J_ATP quadratic in J_3PGA | – | fitted to pfennig2024 steady states (`scripts/fit_petc_closed_form.py`) |
+
+## Biomass ATP demand (ADR 0006, checkpoint B)
+
+| value | where | unit | source |
+| --- | --- | --- | --- |
+| 50 (paper: 0.774) | ATP per gDW biomass, all families (`metabolism.BIOMASS_ATP`, `single_fixed.BIOMASS_STOICHIOMETRY`) | mmol gDW^-1 | **assumption, to be sourced**: order of genome-scale growth-associated ATP costs incl. polymerisation; the paper's value lacks them and makes the `full` model collapse (report 09) |

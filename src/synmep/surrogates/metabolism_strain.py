@@ -20,7 +20,14 @@ import numpy as np
 import pandas as pd
 
 from synmep.data import DATA
-from synmep.models.metabolism import SUPPLIES, SURROGATE_OUTPUTS, get_model
+from synmep.models.metabolism import (
+    BIOMASS,
+    REFERENCE,
+    SUPPLIES,
+    SURROGATE_OUTPUTS,
+    get_model,
+    reference_parameters,
+)
 from synmep.runners import steady_state_scan
 from synmep.surrogates.poly import fit_polynomial, predict
 
@@ -33,6 +40,7 @@ DEGREES = (3, 4, 5, 6)
 def key(folds: dict[str, float], coupling: float) -> str:
     text = json.dumps(
         {
+            "biomass": BIOMASS,
             "coupling": coupling,
             "folds": {k: round(v, 6) for k, v in sorted(folds.items())},
         }
@@ -51,7 +59,12 @@ def sample(n: int, rng: np.random.Generator) -> pd.DataFrame:
     return pd.DataFrame(
         {
             "S_PGA": np.maximum(rows["J_3PGA"].to_numpy() * conv, FLOOR),
-            "S_ATP": np.maximum(rows["J_ATP"].to_numpy() * conv, FLOOR),
+            "S_ATP": np.maximum(
+                rows["J_ATP"].to_numpy()
+                * conv
+                * reference_parameters(REFERENCE)["atp_scale"],
+                FLOOR,
+            ),
         }
     )
 

@@ -307,7 +307,13 @@ def get_model(
     exprs["S_PGA"] = sp.Max(
         sp.Symbol("J_3PGA") * chl * 0.06 * supply_scale, sp.Symbol("S_PGA_floor")
     )
-    exprs["S_ATP"] = sp.Max(sp.Symbol("J_ATP"), 0) * chl * 0.06 * supply_scale
+    exprs["S_ATP"] = (
+        sp.Max(sp.Symbol("J_ATP"), 0)
+        * chl
+        * 0.06
+        * supply_scale
+        * sp.Symbol("atp_scale")
+    )
     if cost == "proteome":  # growth capacity is displaced too
         m.add_parameter("V_bio_WT", v_bio_wt)
         m.remove_parameter("V_bio")

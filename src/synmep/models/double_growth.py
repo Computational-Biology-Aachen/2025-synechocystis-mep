@@ -30,7 +30,7 @@ from synmep import acclimation
 from synmep import light as light_sources
 from synmep.data import DATA, LegacyInputs
 from synmep.exprfn import expr_fn
-from synmep.models.metabolism import REFERENCE
+from synmep.models.metabolism import REFERENCE, reference_parameters
 from synmep.surrogates.petc_legacy import Symbols, light_expressions
 from synmep.surrogates.poly import expressions
 
@@ -201,6 +201,7 @@ def get_model(
             "beta_carotene_fraction": 0.26,
             "petc_scale": 1.0,  # [-] fitted: efficiency of the PETC supply
             "S_PGA_floor": 1e-3,  # [mM min^-1] net respiration at very low light
+            "atp_scale": reference_parameters(REFERENCE)["atp_scale"],
         }
         # enzyme levels relative to WT that the metabolism surrogate takes
         | {i: 1.0 for i in metabolism_poly["inputs"] if i.startswith("E_")}
@@ -224,7 +225,9 @@ def get_model(
     exprs["S_PGA"] = sp.Max(
         sp.Symbol("J_3PGA") * chl * 0.06 * scale, sp.Symbol("S_PGA_floor")
     )
-    exprs["S_ATP"] = sp.Max(sp.Symbol("J_ATP"), 0) * chl * 0.06 * scale
+    exprs["S_ATP"] = (
+        sp.Max(sp.Symbol("J_ATP"), 0) * chl * 0.06 * scale * sp.Symbol("atp_scale")
+    )
     exprs |= expressions(
         metabolism_poly, {i: sp.Symbol(i) for i in metabolism_poly["inputs"]}
     )

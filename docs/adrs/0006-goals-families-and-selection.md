@@ -175,3 +175,15 @@ the goal answers over all passing variants is reported as structural uncertainty
   `pbs_scale`, which the batch data can't separate from `petc_scale`).
 - **LEDs:** blue 450, orange 620, red 680 nm. Far-red 730 nm is outside the 400–700 nm
   absorption data and can't be assessed.
+
+## 6. Amendments at checkpoint B (report 09)
+
+- **Biomass ATP demand 50 mmol gDW^-1 for all families** (paper: 0.774, without
+  polymerisation costs). With the paper's value the `full` model runs out of NADPH and
+  photosynthetic control stops growth; the surrogate families had hidden the ATP
+  balance in a maintenance sink. The value is an assumption until sourced; `double` and
+  `minimal` are refitted in the shared fit anyway.
+- **`full` at low light per cell:** make the metabolism's sinks (maintenance, storage)
+  and pfennig2024's respiration saturate with their substrates so they stop at low
+  supply, and add a fitted PETC/CBB efficiency like the surrogate families; changes to
+  pfennig2024 are reported.

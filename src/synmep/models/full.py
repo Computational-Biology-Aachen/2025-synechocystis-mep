@@ -52,11 +52,7 @@ SHARED_METABOLITES = ("MEPi", "IPP")
 PFENNIG_POOLS = {"PGA": "3PGA", "ATP": "ATP", "NADPH": "NADPH"}  # metabolism -> pf
 SOLUBLE_TOTALS = ("AP_tot", "NADP_tot", "NAD_tot")  # [mmol mol(Chl)^-1] in pfennig
 REFERENCE_CHL = 19.9  # [mM] pfennig2024's per-Chl totals hold at this Chl content
-# [mmol ATP gDW^-1] biomass ATP demand. The paper's composition has 0.774 (no
-# polymerisation costs); with it, the coupled model runs out of NADPH, ATP piles up and
-# photosynthetic control collapses growth. Genome-scale models of Synechocystis use
-# ~40-60 incl. polymerisation (assumption, to be sourced; checkpoint B).
-BIOMASS_ATP = 50.0
+BIOMASS_ATP = metabolism.BIOMASS_ATP  # [mmol gDW^-1] (ADR 0006 checkpoint B)
 
 
 def per_chl(total_cell: float, chl: float) -> float:
@@ -169,9 +165,12 @@ def get_model(
     skip = set(LIGHT_INPUTS) | (set(SOLUBLE_TOTALS) if soluble_per_cell else set())
     m.add_parameters({k: v for k, v in pf_pars.items() if k not in skip})
     met_pars = met.get_parameter_values()
-    m.add_parameters(
-        {k: v for k, v in met_pars.items() if k not in ("S_PGA", "S_ATP", "r_NADPH")}
-    )
+    # ATP demand is mechanistic here (biomass, MEP chain); the surrogate families'
+    # maintenance sink balanced an assumed supply and would drain pfennig2024's
+    # nearly fully charged adenylate pool
+    met_pars["k_ATP_maintenance"] = 0.0
+    skip_met = ("S_PGA", "S_ATP", "r_NADPH", "atp_scale")
+    m.add_parameters({k: v for k, v in met_pars.items() if k not in skip_met})
     m.add_parameters(
         totals_cell
         | ({} if dynamic else {"N": cell_density})

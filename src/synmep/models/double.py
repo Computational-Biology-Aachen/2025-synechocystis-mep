@@ -103,7 +103,9 @@ def get_model(
     exprs["S_PGA"] = sp.Max(
         sp.Symbol("J_3PGA") * chl * 0.06 * scale, sp.Symbol("S_PGA_floor")
     )
-    exprs["S_ATP"] = sp.Max(sp.Symbol("J_ATP"), 0) * chl * 0.06 * scale
+    exprs["S_ATP"] = (
+        sp.Max(sp.Symbol("J_ATP"), 0) * chl * 0.06 * scale * sp.Symbol("atp_scale")
+    )
     for name, expr in exprs.items():
         fn, args = expr_fn(expr, origin=name)
         m.add_derived(name, fn=fn, args=args)

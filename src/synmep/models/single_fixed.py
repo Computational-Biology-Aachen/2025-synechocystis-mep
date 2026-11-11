@@ -32,7 +32,9 @@ __all__ = ["get_model", "load_inputs"]
 
 UM_TO_MM = 1e-3
 # [mmol gDW^-1] (paper Tab. biomass_stoichiometry, Knoop2013)
-BIOMASS_STOICHIOMETRY = {"3PGA": 6.934, "ATP": 0.774, "NADPH": 2.924, "Fdred": 2.300}
+# ATP raised from the paper's 0.774 to 50 mmol gDW^-1 for all families (ADR 0006
+# checkpoint B, `metabolism.BIOMASS_ATP`)
+BIOMASS_STOICHIOMETRY = {"3PGA": 6.934, "ATP": 50.0, "NADPH": 2.924, "Fdred": 2.300}
 # retrained pfennig2024 surrogate, white light + LED mixtures (report 08)
 PETC_POLY = DATA / "surrogates" / "petc_poly_led.json"
 # enzyme made per unit of synthesis rate; the legacy stoichiometry was sf * 1000 µM =
@@ -284,7 +286,14 @@ def get_model(
             m.add_derived(S(f"{j}_cap"), fn=k.proportional, args=[S(j), "Cap"])
     j3, ja = (S("J_3PGA_cap"), "J_ATP_cap") if capacity else (S("J_3PGA"), "J_ATP")
     m.add_derived(S("v3PGA_prod"), fn=clip_zero, args=[j3])
-    m.add_derived(S("vATP_prod"), fn=clip_zero, args=[ja])
+    # ATP supply scaled to cover the extra biomass ATP at the default state (50 instead
+    # of 0.774 mmol gDW^-1: +7.3 on 3.14 mM min^-1; ADR 0006 checkpoint B, refitted in
+    # the shared fit)
+    m.add_parameter("atp_scale", 3.32)
+    m.add_derived(S("vATP_prod_raw"), fn=clip_zero, args=[ja])
+    m.add_derived(
+        S("vATP_prod"), fn=k.proportional, args=[S("vATP_prod_raw"), "atp_scale"]
+    )
     m.add_derived(
         S("vNADPH_prod"), fn=k.proportional, args=[S("v3PGA_prod"), "r_NADPH_PGA"]
     )

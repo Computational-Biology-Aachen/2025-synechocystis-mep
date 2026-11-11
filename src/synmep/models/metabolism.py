@@ -29,7 +29,11 @@ from dataclasses import dataclass, field
 from mxlpy import Model
 
 # biomass composition flux [mmol gDW^-1] (paper Tab. biomass_stoichiometry, Knoop2013)
-BIOMASS = {"PGA": 6.934, "ATP": 0.774, "NADPH": 2.924}
+# [mmol gDW^-1] paper composition; ATP raised from the paper's 0.774 (no
+# polymerisation costs) to a genome-scale-like 50 (ADR 0006 checkpoint B, assumption
+# to be sourced): with 0.774 the `full` model runs out of NADPH and collapses
+BIOMASS_ATP = 50.0
+BIOMASS = {"PGA": 6.934, "ATP": BIOMASS_ATP, "NADPH": 2.924}
 POOLS = ("PGA", "ATP", "NADPH", "MEPi", "IPP", "FPP", "GGPP")
 ENZYMES = ("DXS", "MEP", "CrtE", "Sqs", "CrtB", "Chl")  # CrtE makes FPP and GGPP
 SUPPLIES = ("S_PGA", "S_ATP")
@@ -178,8 +182,14 @@ def reference_parameters(
         bm["NADPH"] * j["bio"] + 3 * j["mep"] + 3 * j["chl"] + j["sq"]
     ) + dil["NADPH"]
     s_nadph = nadph_demand / (1 - ref.nadph_overflow)
-    s_atp = ref.j_atp_petc * ref.chl * 0.06
     atp_demand = bm["ATP"] * j["bio"] + 3 * j["mep"] + dil["ATP"]
+    # pfennig2024's J_ATP is the flux into its own lumped ATP sink, not a capacity; the
+    # coupled model makes more ATP when demanded (`full`). So J_ATP keeps the light
+    # dependence and `atp_scale` sets the magnitude to cover the reference demand
+    # (ADR 0006 checkpoint B), with the same 5 % margin as for 3PGA
+    s_atp_petc = ref.j_atp_petc * ref.chl * 0.06
+    atp_scale = max(1.0, atp_demand / (1 - ref.pga_overflow) / s_atp_petc)
+    s_atp = s_atp_petc * atp_scale
     bio_sat = (ref.mu / MU_MAX) ** (1 / 3)
     return {
         "V_DXS": j["dxs"]
@@ -205,6 +215,7 @@ def reference_parameters(
         "k_ATP_maintenance": max(s_atp - atp_demand, 0.0) / p["ATP"],
         "S_PGA": s_pga,
         "S_ATP": s_atp,
+        "atp_scale": atp_scale,
     }
 
 
