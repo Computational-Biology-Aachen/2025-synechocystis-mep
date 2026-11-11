@@ -6,6 +6,7 @@ uv run python scripts/plot_productivity.py
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
 import matplotlib as mpl
@@ -18,13 +19,26 @@ import pandas as pd
 RES = Path("docs/reports/productivity.json")
 FIG = Path("docs/reports/figures")
 ORDER = ["v0", "v1", "g-none", "g-coupled", "g-photoacclimation", "g-capacity"]
+# --v3: the minimal-model variants next to their thread-g parents, separate figures
+ORDER_V3 = [
+    "g-coupled",
+    "g-capacity",
+    "v3-drain",
+    "v3-proteome",
+    "v3-drain-cap",
+    "v3-proteome-cap",
+]
+V3 = "--v3" in sys.argv
 PIGMENT_TRADE_OFF = {"v0": True, "v1": True, "g-none": True, "g-coupled": True,
-                     "g-photoacclimation": False, "g-capacity": False}  # fmt: skip
+                     "g-photoacclimation": False, "g-capacity": False,
+                     "v3-drain": True, "v3-proteome": True, "v3-drain-cap": True,
+                     "v3-proteome-cap": True}  # fmt: skip
+SUFFIX = "-v3" if V3 else ""
 
 
 def main() -> None:
     res = json.loads(RES.read_text())
-    variants = [v for v in ORDER if v in res]
+    variants = [v for v in (ORDER_V3 if V3 else ORDER) if v in res]
     grids = {v: pd.DataFrame(res[v]["grid"]) for v in variants}
 
     fig, axes = plt.subplots(1, len(variants), figsize=(3.3 * len(variants), 3.2),
@@ -61,7 +75,7 @@ def main() -> None:
                 if "bound_mg_L_h" in g and pd.notna(best.get("bound_mg_L_h")) else None,
             }
         )  # fmt: skip
-    fig.savefig(FIG / "productivity-maps.png", dpi=100)
+    fig.savefig(FIG / f"productivity-maps{SUFFIX}.png", dpi=100)
 
     fig, axes = plt.subplots(1, 3, figsize=(13, 3.6), layout="constrained")
     for v in variants:
@@ -84,7 +98,7 @@ def main() -> None:
     axes[0].legend(fontsize=8)
     fig.suptitle("trade-off at each variant's optimal density (dotted: no pigment "
                  "trade-off by construction)")  # fmt: skip
-    fig.savefig(FIG / "productivity-trade-off.png", dpi=100)
+    fig.savefig(FIG / f"productivity-trade-off{SUFFIX}.png", dpi=100)
     print(pd.DataFrame(rows).to_markdown(index=False))
 
 

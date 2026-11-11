@@ -115,3 +115,43 @@ def load_legacy_inputs(
         ).drop([0, 15], axis=0),
         surrogate_poly=surrogate_poly,
     )
+
+
+def proteomics_samples(data: Path = DATA) -> pd.DataFrame:
+    """Per-sample OD, gravimetric dry weight and measured protein of the proteomics
+    samples, with per-cell values (cells from OD via `CELLS_PER_OD_ML`).
+
+    Columns: sample, od [OD750 in the sample], dry_weight, protein [g L^-1 in the
+    sample], cells [cells mL^-1], dry_weight_pg, protein_pg [pg cell^-1],
+    protein_fraction [g protein g(DW)^-1, measured].
+    """
+
+    def od750(name: str) -> pd.Series:
+        df = pd.read_csv(data / name, delimiter=";", header=1, index_col=0)
+        return df.loc[750].dropna()
+
+    dil = pd.read_csv(data / "Proteomics_samples_dilutions.csv", delimiter=";")
+    dw = pd.read_csv(data / "Proteomics_Dry_weights.csv", delimiter=";")
+    prot = pd.read_csv(
+        data / "Proteomics_samples_proteinconcentration.csv", delimiter=";"
+    )
+    od = pd.concat(
+        [
+            od750("20240328_Spectrum_OD_WT_proteomics.csv"),
+            od750("20240329_Spectrum_OD_sqs_proteomics.csv"),
+            od750("20240329_Spectrum_OD_dCas9_proteomics.csv"),
+        ]
+    ).to_numpy(dtype=float)
+    out = pd.DataFrame(
+        {
+            "sample": dil.iloc[:, 0],
+            "od": od / dil["dilution factor for OD measurement"].to_numpy(),
+            "dry_weight": (dw["Difference"] / dil["Cell dry weight volume [mL]"]),
+            "protein": prot["Concentration in cell sample [ug/ml]"] / 1000,
+        }
+    )
+    out["cells"] = out["od"] * CELLS_PER_OD_ML
+    out["dry_weight_pg"] = out["dry_weight"] * 1e-3 / out["cells"] * 1e12
+    out["protein_pg"] = out["protein"] * 1e-3 / out["cells"] * 1e12
+    out["protein_fraction"] = out["protein"] / out["dry_weight"]
+    return out

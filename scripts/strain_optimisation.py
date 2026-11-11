@@ -100,13 +100,25 @@ def variants(selected: list[str]) -> list[Variant]:
         if f"g-{v}" not in selected:
             continue
         m = g_coupled.get_model(load_legacy_inputs(), v)  # type: ignore[arg-type]
-        pars = {
-            f"E_{lump}": float(np.exp(np.mean([np.log(folds[e]) for e in members])))
-            for lump, members in G_ENZYMES.items()
-        }
+        pars = g_folds(folds)
         out.append(Variant(f"g-{v}", m, pars, "v_sq", "v_bio", NATIVE_RUNNER,
                            lambda r: r["v_sq"] / r["mu"]))  # fmt: skip
+    from synmep.models import v3_minimal
+
+    for name in v3_minimal.VARIANTS:
+        if name not in selected:
+            continue
+        m = v3_minimal.get_model(load_legacy_inputs(), **v3_minimal.variant(name))
+        out.append(Variant(name, m, g_folds(folds), "v_sq", "v_bio", NATIVE_RUNNER,
+                           lambda r: r["v_sq"] / r["mu"]))  # fmt: skip
     return out
+
+
+def g_folds(folds: dict[str, float]) -> dict[str, float]:
+    return {
+        f"E_{lump}": float(np.exp(np.mean([np.log(folds[e]) for e in members])))
+        for lump, members in G_ENZYMES.items()
+    }
 
 
 def steady_state(v: Variant, model: Model, y0: dict[str, float]) -> pd.Series | None:
@@ -167,7 +179,8 @@ def optimise(v: Variant) -> dict:
 
 def main() -> None:
     all_variants = ["v0", "v1", "g-none", "g-coupled", "g-photoacclimation",
-                    "g-capacity"]  # fmt: skip
+                    "g-capacity", "v3-drain", "v3-proteome", "v3-drain-cap",
+                    "v3-proteome-cap"]  # fmt: skip
     selected = sys.argv[1:] or all_variants
     results = json.loads(OUT.read_text()) if OUT.exists() else {}
     for v in variants(selected):

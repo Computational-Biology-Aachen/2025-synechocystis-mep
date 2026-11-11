@@ -49,7 +49,7 @@ OUT_STRAINS = Path("docs/reports/productivity-strains.json")
 STRAINS = Path("docs/reports/strain-optimisation.json")
 M_SQ = 410.73
 SQS_FACTORS = np.geomspace(0.1, 1e4, 16)
-DENSITIES = np.geomspace(3e6, 3e9, 13)  # [cells mL^-1]
+DENSITIES = np.geomspace(3e6, 3e10, 17)  # [cells mL^-1] (3e9 ~ OD 30, practical limit)
 PGA_PER_SQ = 12  # 6 C5 units, each from one DXS reaction (G3P + PYR = 2 3PGA)
 
 
@@ -94,6 +94,21 @@ def g_adapter(variant: str):
     return configure, NATIVE_RUNNER, 4e-15, keys, "S_PGA", "E_Sqs"
 
 
+def v3_adapter(name: str):
+    from synmep.models import v3_minimal
+
+    base = v3_minimal.get_model(load_legacy_inputs(), **v3_minimal.variant(name))
+    p0 = base.get_parameter_values()
+
+    def configure(folds: dict[str, float], n: float):
+        m = copy.deepcopy(base)
+        m.update_parameters({k: p0[k] * f for k, f in folds.items()} | {"N": n})
+        return m
+
+    keys = {"v_sq": "v_sq", "mu": "mu", "chl": "Chl", "sq": "SQ"}
+    return configure, NATIVE_RUNNER, 4e-15, keys, "S_PGA", "E_Sqs"
+
+
 def _get(fluxes, args, key: str) -> float:
     return float(fluxes[key] if key in fluxes else args[key])
 
@@ -101,6 +116,8 @@ def _get(fluxes, args, key: str) -> float:
 def adapter(name: str):
     if name in ("v0", "v1"):
         return legacy_adapter(name)
+    if name.startswith("v3"):
+        return v3_adapter(name)
     return g_adapter(name.removeprefix("g-"))
 
 
@@ -174,7 +191,8 @@ def main() -> None:
     args = [a for a in sys.argv[1:] if a != "--strains"]
     out = OUT_STRAINS if strains else OUT
     names = args or ["v0", "v1", "g-none", "g-coupled", "g-photoacclimation",
-                             "g-capacity"]  # fmt: skip
+                     "g-capacity", "v3-drain", "v3-proteome", "v3-drain-cap",
+                     "v3-proteome-cap"]  # fmt: skip
     results = json.loads(out.read_text()) if out.exists() else {}
     for name in names:
         t = time.perf_counter()

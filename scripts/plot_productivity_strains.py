@@ -6,6 +6,7 @@ uv run python scripts/plot_productivity_strains.py
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
 import matplotlib as mpl
@@ -17,6 +18,16 @@ import pandas as pd
 RES = Path("docs/reports/productivity-strains.json")
 FIG = Path("docs/reports/figures/productivity-strains.png")
 ORDER = ["v0", "v1", "g-none", "g-coupled", "g-photoacclimation", "g-capacity"]
+# --v3: the minimal-model variants next to their thread-g parents, separate figures
+ORDER_V3 = [
+    "g-coupled",
+    "g-capacity",
+    "v3-drain",
+    "v3-proteome",
+    "v3-drain-cap",
+    "v3-proteome-cap",
+]
+V3 = "--v3" in sys.argv
 
 
 def short(p: str) -> str:
@@ -25,7 +36,7 @@ def short(p: str) -> str:
 
 def main() -> None:
     res = json.loads(RES.read_text())
-    variants = [v for v in ORDER if v in res]
+    variants = [v for v in (ORDER_V3 if V3 else ORDER) if v in res]
     fig, axes = plt.subplots(2, len(variants), figsize=(3.3 * len(variants), 6.5),
                              layout="constrained", squeeze=False)  # fmt: skip
     rows = []
@@ -62,7 +73,7 @@ def main() -> None:
         })  # fmt: skip
     axes[0, -1].legend(title="round", fontsize=7)
     FIG.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(FIG, dpi=100)
+    fig.savefig(FIG.with_stem(FIG.stem + "-v3") if V3 else FIG, dpi=100)
     print(pd.DataFrame(rows).to_markdown(index=False))
 
 

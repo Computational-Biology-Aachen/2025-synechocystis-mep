@@ -144,6 +144,7 @@ class Reference:
     )
     pga_overflow: float = 0.05  # fraction of PGA supply going to storage at reference
     nadph_overflow: float = 0.2  # fraction of NADPH supply oxidised at reference
+    rho_dw: float = RHO_DW  # [gDW L(cell)^-1]
 
 
 REFERENCE = Reference()
@@ -159,7 +160,7 @@ def reference_fluxes(ref: Reference = REFERENCE) -> dict[str, float]:
     j["mep"] = 3 * j["fpps"] + j["ggpps"] + mu * p["IPP"]
     j["dxs"] = j["mep"] + mu * p["MEPi"]
     j["ipp"] = j["mep"]
-    j["bio"] = mu * RHO_DW  # [gDW L^-1 min^-1]
+    j["bio"] = mu * ref.rho_dw  # [gDW L^-1 min^-1]
     return j
 
 
@@ -193,7 +194,7 @@ def reference_parameters(ref: Reference = REFERENCE) -> dict[str, float]:
         "V_Chl": j["chl"]
         / (mm(p["GGPP"], KM["Chl_GGPP"]) * mm(p["NADPH"], KM["Chl_NADPH"])),
         # capacity mu_max; each cofactor term equally saturated so that mu = mu_ref
-        "V_bio": MU_MAX * RHO_DW,
+        "V_bio": MU_MAX * ref.rho_dw,
         **{f"Km_bio_{s}": p[s] * (1 / bio_sat - 1) for s in BIOMASS},
         "r_NADPH": s_nadph / s_pga,
         "k_PGA_storage": ref.pga_overflow * s_pga / p["PGA"],
@@ -223,7 +224,7 @@ def get_model(ref: Reference = REFERENCE, pigment_coupling: float = 0.0) -> Mode
         | {f"Km_{k}": v for k, v in KM.items()}
         | {f"Ki_{k}": v for k, v in KI.items()}
         | reference_parameters(ref)
-        | {"rho_DW": RHO_DW}
+        | {"rho_DW": ref.rho_dw}
     )
     m.add_derived("S_NADPH", fn=proportional, args=["S_PGA", "r_NADPH"])
     for s in ("PGA", "ATP", "NADPH"):
