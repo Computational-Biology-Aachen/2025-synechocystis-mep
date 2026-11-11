@@ -1,6 +1,7 @@
 """Registry of the model variants in the comparison (ADR 0006 §2.3).
 
-`adapter(name)` returns the `synmep.evaluate.Adapter` of a variant. The `double`
+`adapter(name)` returns the `synmep.evaluate.Adapter` of a variant; the suffix `+ca`
+adds chromatic acclimation (`minimal` so far, ADR 0006 §2.6). The `double`
 batch (and its pre-culture) runs on the growth layer with a per-strain metabolism
 surrogate (trained on first use, ~2 min); its turbidostat and MCA on the metabolism
 ODE.
@@ -135,14 +136,15 @@ def _minimal(name: str) -> Adapter:
     from synmep.models import minimal
 
     inp = load_legacy_inputs()
-    kw = minimal.variant(name)
+    base, chromatic = name.split("+ca")[0], name.endswith("+ca")
+    kw = minimal.variant(base) | {"chromatic": chromatic}
 
     def build(mode, *, light, sample_depth, light_channels=None):
         m = minimal.get_model(
             inp, growth_mode=mode, light=light, sample_depth=sample_depth,
             light_channels=light_channels, **kw,
         )  # fmt: skip
-        return _with_fit(m, name)
+        return _with_fit(m, base)
 
     return Adapter(
         name=name,

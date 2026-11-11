@@ -341,3 +341,33 @@ def fig10(
         "n_converged": int(ok.sum()),
         "rmse_mu_per_h": float(np.sqrt(np.mean((mu[ok] - ref[ok]) ** 2))),
     }
+
+
+CHROMATIC_REFERENCE = {"density": 2e8} | BATCH_LIGHT  # ~Fig 9 median density
+
+
+def calibrate_chromatic(
+    fixed: Adapter,
+    chromatic: Adapter,
+    pars: dict[str, float] | None = None,
+    light_channels=None,
+    weights: dict[str, float] | None = None,
+) -> float:
+    """Imbalance E2/E1 at the reference state (warm white, measured PS1:PS2) for
+    `chromatic_reference` (ADR 0006 §2.6): steady state of the fixed-ratio variant,
+    imbalance evaluated with the chromatic variant's expressions at that state."""
+    from synmep import acclimation
+
+    ref = dict(CHROMATIC_REFERENCE)
+    n = ref.pop("density")
+    m = steady_model(fixed, {}, n, light_channels=light_channels, pars=pars, **ref)
+    m.update_parameters(dict(weights or {}))
+    row = steady_state(fixed, m)
+    if row is None:
+        msg = f"{fixed.name}: no reference steady state"
+        raise RuntimeError(msg)
+    mc = steady_model(chromatic, {}, n, light_channels=light_channels, pars=pars, **ref)
+    mc.update_parameters(dict(weights or {}))
+    y = {k: float(row[k]) for k in mc.get_variable_names() if k in row.index}
+    y["ps_ratio"] = float(m.get_parameter_values()["ps_ratio"])
+    return acclimation.imbalance(mc.get_args(y))

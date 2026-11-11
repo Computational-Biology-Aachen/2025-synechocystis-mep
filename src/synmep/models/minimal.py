@@ -48,6 +48,7 @@ import numpy as np
 import sympy as sp
 from mxlpy import Model
 
+from synmep import acclimation
 from synmep import light as light_sources
 from synmep.data import CELL_VOLUME as LEGACY_CELL_VOLUME
 from synmep.data import DATA, PROTEIN_CONTENT, LegacyInputs, proteomics_samples
@@ -175,7 +176,9 @@ def petc_expressions(
     nodes, weights = np.polynomial.legendre.leggauss(depth_nodes)
     ch = None if light_channels is None else light_sources.channels(light_channels)
     exprs: dict[str, sp.Expr] = {}
-    means: dict[str, list[sp.Expr]] = {"J_3PGA": [], "J_ATP": [], "abs_ps1": []}
+    means: dict[str, list[sp.Expr]] = {
+        "J_3PGA": [], "J_ATP": [], "abs_ps1": [], "abs_ps2": [], "abs_pbs": [],
+    }  # fmt: skip
     for i, (x, w) in enumerate(zip(nodes, weights, strict=True)):
         pre = f"z{i}_"
         exprs[f"{pre}depth"] = float((x + 1) / 2) * sp.Symbol("sample_depth_m")
@@ -217,11 +220,14 @@ def petc_expressions(
             ("J_3PGA", "J_3PGA"),
             ("J_ATP", "J_ATP"),
             ("abs_ps1", "complex_abs_ps1"),
+            ("abs_ps2", "complex_abs_ps2"),
+            ("abs_pbs", "complex_abs_pbs"),
         ):
             means[k].append(float(w / 2) * sp.Symbol(f"{pre}{name}"))
     exprs["J_3PGA"] = sp.Add(*means["J_3PGA"])
     exprs["J_ATP"] = sp.Add(*means["J_ATP"])
-    exprs["complex_abs_ps1_mean"] = sp.Add(*means["abs_ps1"])
+    for c in ("ps1", "ps2", "pbs"):
+        exprs[f"complex_abs_{c}_mean"] = sp.Add(*means[f"abs_{c}"])
     return exprs
 
 
@@ -239,6 +245,7 @@ def get_model(
     use_fit: bool = True,
     light_channels: tuple[str, ...] | None = None,
     petc: Petc = "m0",
+    chromatic: bool = False,
 ) -> Model:
     rho_dw = dry_weight_density()
     ref = metabolism.Reference(rho_dw=rho_dw)
@@ -287,6 +294,9 @@ def get_model(
     if light_channels is not None:
         light_sources.add_parameters(m, light_channels)
     exprs = petc_expressions(inp, depth_nodes, spectral_step, light_channels, petc)
+    if chromatic:  # PS1:PS2 seeks balanced excitation (ADR 0006 §2.6)
+        m.add_parameters(acclimation.CHROMATIC)
+        exprs |= acclimation.chromatic_expressions()
     if petc == "m2":
         m.add_parameter("m2_tau", M2_TAU)
         for i in range(depth_nodes):
@@ -345,6 +355,11 @@ def get_model(
             args=[flux, state, "mu", "slow_speedup"],
             stoichiometry={state: 1},
         )
+    if chromatic:
+        m.add_derived(
+            "chromatic_rate", fn=_rate, args=["chromatic_tau", "slow_speedup"]
+        )
+        acclimation.add_chromatic_state(m, "chromatic_rate")
     if capacity:
         m.add_derived("capacity_rate", fn=_rate, args=["capacity_tau", "slow_speedup"])
         m.add_reaction(

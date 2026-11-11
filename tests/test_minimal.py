@@ -56,3 +56,23 @@ def test_slow_speedup_keeps_steady_state(inp):
     slow = _steady(m)
     for k in ("mu", "Chl", "SQ", "PGA"):
         assert slow[k] == pytest.approx(fast[k], rel=1e-5)
+
+
+def test_chromatic_acclimation_moves_ps_ratio_the_right_way(inp):
+    from synmep import evaluate, light, variants
+
+    names = light.LAMPS + light.LEDS
+    fx, ch = variants.adapter("minimal-m0"), variants.adapter("minimal-m0+ca")
+    ref = evaluate.calibrate_chromatic(fx, ch, light_channels=names)
+    ratios = {}
+    for src in ("warm_white_led", "led_blue", "led_orange"):
+        m = evaluate.steady_model(
+            ch, {}, 2e8, light_channels=names, pars={"chromatic_reference": ref},
+            **evaluate.BATCH_LIGHT,
+        )  # fmt: skip
+        m.update_parameters(light.weights(src, names))
+        ratios[src] = float(evaluate.steady_state(ch, m)["ps_ratio"])
+    # warm white keeps the measured ratio at the reference state; PS1 light (blue)
+    # lowers it, PS2 light (orange) raises it
+    assert ratios["warm_white_led"] == pytest.approx(5.9, rel=0.02)
+    assert ratios["led_blue"] < ratios["warm_white_led"] < ratios["led_orange"]
