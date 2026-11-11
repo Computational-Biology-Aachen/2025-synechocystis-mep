@@ -28,6 +28,7 @@ VARIANTS = (
     "minimal-m0-cap",
     "minimal-m2",
     "minimal-m2-cap",
+    "full-k3",
 )
 
 
@@ -154,6 +155,31 @@ def _minimal(name: str) -> Adapter:
     )
 
 
+def _full(name: str) -> Adapter:
+    from synmep.models import full
+
+    inp = load_legacy_inputs()
+    layers = int(name.removeprefix("full-k").split("-")[0])
+
+    def build(mode, *, light, sample_depth, light_channels=None):
+        m = full.get_model(
+            inp, growth_mode=mode, light=light, sample_depth=sample_depth,
+            light_channels=light_channels, layers=layers,
+        )  # fmt: skip
+        return _with_fit(m, name)
+
+    return Adapter(
+        name=name,
+        build=build,
+        n_name="N",
+        n_unit=1.0,
+        n_is_variable_in_steady=False,
+        cell_volume=4e-15,
+        keys={"mu": "mu", "sq": "SQ", "v_sq": "v_sq", "chl": "Chl", "car": "Car"},
+        time_per_min=60.0,
+    )
+
+
 @cache
 def adapter(name: str) -> Adapter:
     if name.startswith("single-"):
@@ -162,5 +188,7 @@ def adapter(name: str) -> Adapter:
         return _double(name)
     if name.startswith("minimal-"):
         return _minimal(name)
+    if name.startswith("full-"):
+        return _full(name)
     msg = f"unknown variant {name!r}"
     raise ValueError(msg)

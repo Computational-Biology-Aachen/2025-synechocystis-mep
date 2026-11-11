@@ -63,6 +63,7 @@ class Adapter:
     # modes whose `build` takes the enzyme folds itself (`double`'s per-strain
     # metabolism surrogates) instead of having them applied to parameters
     folds_in_build: tuple[str, ...] = ()
+    time_per_min: float = 1.0  # model time units per minute (`full`: seconds -> 60)
 
 
 def _row(res) -> pd.Series:
@@ -120,7 +121,7 @@ def steady_state(a: Adapter, m: Model, rtol: float = 1e-5) -> pd.Series | None:
         res = runner.steady_state(m)
         if hasattr(res.value, "fluxes"):
             return _row(res)
-    res = Simulator(m, integrator=NATIVE).simulate(1e5).get_result()
+    res = Simulator(m, integrator=NATIVE).simulate(1e5 * a.time_per_min).get_result()
     if not hasattr(res.value, "variables"):
         return None
     y = res.value.variables.iloc[-1][m.get_variable_names()]
@@ -161,8 +162,12 @@ def batch(
     md.update_parameters(pars)
     y0 = {k: float(pre[k]) for k in md.get_variable_names() if k in pre.index}
     y0[a.n_name] = float(data.index[0]) / a.n_unit
-    t = np.linspace(0, hours * 60, n_points)
-    tc = Simulator(md, y0=y0, integrator=NATIVE).simulate_time_course(t).get_result()
+    t = np.linspace(0, hours * 60, n_points)  # [min]
+    tc = (
+        Simulator(md, y0=y0, integrator=NATIVE)
+        .simulate_time_course(t * a.time_per_min)
+        .get_result()
+    )
     if not hasattr(tc.value, "variables"):
         return None
     args = tc.value.get_args(include_derived_parameters=True)

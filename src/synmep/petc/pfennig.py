@@ -28,7 +28,9 @@ OUTPUTS = ("J_3PGA", "J_ATP")
 PGA_PRODUCTION = {"vCBB": 1.0, "vOxy": -2.0, "vPRsalv": 1.0, "vRespiration": -1.0}
 
 
-def get_petc_model() -> Model:
+def get_petc_model(*, clamp_pga: bool = True) -> Model:
+    """pfennig2024 with absorbed light as parameters; 3PGA clamped unless `clamp_pga`
+    is False (the `full` family couples 3PGA to the metabolism instead)."""
     m = get_pfennig2024_synechocystis()
     defaults = m.get_args()
 
@@ -48,6 +50,8 @@ def get_petc_model() -> Model:
         m.remove_data(name)
     m.add_parameters({name: float(defaults[name]) for name in LIGHT_INPUTS})
 
+    if not clamp_pga:
+        return m
     # clamp 3PGA: drop it from all stoichiometries, keep it as a constant pool
     pga0 = float(defaults["3PGA"])
     for rxn, r in m.get_raw_reactions().items():

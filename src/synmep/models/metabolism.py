@@ -164,19 +164,22 @@ def reference_fluxes(ref: Reference = REFERENCE) -> dict[str, float]:
     return j
 
 
-def reference_parameters(ref: Reference = REFERENCE) -> dict[str, float]:
+def reference_parameters(
+    ref: Reference = REFERENCE, biomass: dict[str, float] | None = None
+) -> dict[str, float]:
     """Maximal rates and sink constants reproducing the reference state."""
     j, p, sat = reference_fluxes(ref), ref.pools, 0.5
+    bm = BIOMASS if biomass is None else biomass
     dil = {k: ref.mu * v for k, v in p.items()}
 
-    pga_demand = BIOMASS["PGA"] * j["bio"] + 2 * j["dxs"] + dil["PGA"]
+    pga_demand = bm["PGA"] * j["bio"] + 2 * j["dxs"] + dil["PGA"]
     s_pga = pga_demand / (1 - ref.pga_overflow)
     nadph_demand = (
-        BIOMASS["NADPH"] * j["bio"] + 3 * j["mep"] + 3 * j["chl"] + j["sq"]
+        bm["NADPH"] * j["bio"] + 3 * j["mep"] + 3 * j["chl"] + j["sq"]
     ) + dil["NADPH"]
     s_nadph = nadph_demand / (1 - ref.nadph_overflow)
     s_atp = ref.j_atp_petc * ref.chl * 0.06
-    atp_demand = BIOMASS["ATP"] * j["bio"] + 3 * j["mep"] + dil["ATP"]
+    atp_demand = bm["ATP"] * j["bio"] + 3 * j["mep"] + dil["ATP"]
     bio_sat = (ref.mu / MU_MAX) ** (1 / 3)
     return {
         "V_DXS": j["dxs"]
@@ -195,7 +198,7 @@ def reference_parameters(ref: Reference = REFERENCE) -> dict[str, float]:
         / (mm(p["GGPP"], KM["Chl_GGPP"]) * mm(p["NADPH"], KM["Chl_NADPH"])),
         # capacity mu_max; each cofactor term equally saturated so that mu = mu_ref
         "V_bio": MU_MAX * ref.rho_dw,
-        **{f"Km_bio_{s}": p[s] * (1 / bio_sat - 1) for s in BIOMASS},
+        **{f"Km_bio_{s}": p[s] * (1 / bio_sat - 1) for s in bm},
         "r_NADPH": s_nadph / s_pga,
         "k_PGA_storage": ref.pga_overflow * s_pga / p["PGA"],
         "k_NADPH_oxidation": ref.nadph_overflow * s_nadph / p["NADPH"],
@@ -210,20 +213,25 @@ def growth_coupled(e: float, mu: float, mu_ref: float, c: float) -> float:
     return e * (mu / mu_ref) ** c
 
 
-def get_model(ref: Reference = REFERENCE, pigment_coupling: float = 0.0) -> Model:
+def get_model(
+    ref: Reference = REFERENCE,
+    pigment_coupling: float = 0.0,
+    biomass: dict[str, float] | None = None,
+) -> Model:
     """Metabolism layer.
 
     `pigment_coupling` c > 0 scales the pigment-branch enzymes (CrtB, ChlP/ChlG) with
     growth, (mu / mu_ref)^c, so pigment synthesis tracks growth as Chl synthesis does
     in the paper's turbidostat data (pigment regulation variant A, ADR 0004).
     """
+    bm = BIOMASS if biomass is None else biomass
     m = Model()
     m.add_variables(dict(ref.pools))
     m.add_parameters(
         {f"E_{e}": 1.0 for e in ENZYMES}
         | {f"Km_{k}": v for k, v in KM.items()}
         | {f"Ki_{k}": v for k, v in KI.items()}
-        | reference_parameters(ref)
+        | reference_parameters(ref, bm)
         | {"rho_DW": ref.rho_dw}
     )
     m.add_derived("S_NADPH", fn=proportional, args=["S_PGA", "r_NADPH"])
@@ -239,7 +247,7 @@ def get_model(ref: Reference = REFERENCE, pigment_coupling: float = 0.0) -> Mode
         "v_bio",
         fn=v_biomass,
         args=bio_args,
-        stoichiometry={s: -BIOMASS[s] for s in BIOMASS},
+        stoichiometry={s: -bm[s] for s in bm},
     )
     m.add_derived("mu", fn=growth_rate, args=[*bio_args, "rho_DW"])
     m.add_parameters({"mu_ref": ref.mu, "pigment_coupling": pigment_coupling})
