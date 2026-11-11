@@ -25,6 +25,8 @@ VARIANTS = (
     "double-coupled-cap",
     "minimal-m0",
     "minimal-m0-cap",
+    "minimal-m2",
+    "minimal-m2-cap",
 )
 
 

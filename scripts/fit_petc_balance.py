@@ -59,6 +59,9 @@ SPECS = {
            "k_b": 30.0, "V": 25.0, "K": 0.5, "r": 0.3},
 }  # fmt: skip
 LOGIT = {"phi"}
+# lower bounds (natural units): a finite CBB half-saturation keeps the Fd fraction's
+# fixed point away from 0 (K -> 0 makes m2 infinitely stiff as an ODE)
+LOWER = {"K": 0.02}
 
 
 def unpack(names: list[str], z: np.ndarray) -> dict[str, float]:
@@ -86,11 +89,13 @@ def fit_form(form: str, train: pd.DataFrame) -> dict[str, float]:
     starts = [pack(SPECS[form])]
     rng = np.random.default_rng(1)
     starts += [starts[0] + rng.normal(0, 0.7, len(names)) for _ in range(5)]
+    lo = np.array([np.log(LOWER[n]) if n in LOWER else -np.inf for n in names])
     best = min(
         (
             least_squares(
                 lambda z: j3_and_excess(form, unpack(names, z), x)[0] - y,
-                z0,
+                np.maximum(z0, lo + 1e-6),
+                bounds=(lo, np.full(len(names), np.inf)),
                 max_nfev=400,
             )
             for z0 in starts

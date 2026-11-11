@@ -3,7 +3,10 @@
 `minimal-m0` (formerly v3). One ODE model, built from the `double` family (ADR 0004)
 with three reductions:
 
-- PETC: closed form instead of a polynomial surrogate (`scripts/fit_petc_closed_form.py`)
+- PETC: closed form instead of a polynomial surrogate; since checkpoint A (report 08)
+  fitted to white light + LED mixtures (`scripts/fit_petc_balance.py`). `petc="m2"`
+  (`minimal-m2`) replaces it by the mini electron-transport model (fast states per
+  depth node, `synmep.petc.balance`). The m0 form:
 
       I = a_PS1 + w_PS2 a_PS2 + w_PBS a_PBS,
       J_3PGA = J_max tanh(I / I_k) - r,
@@ -66,13 +69,13 @@ LUMPS = {
     "CrtB": ("CrtB",),
     "Chl": ("ChlP", "ChlG"),
 }
-VARIANTS = ("minimal-m0", "minimal-m0-cap")
+VARIANTS = ("minimal-m0", "minimal-m0-cap", "minimal-m2", "minimal-m2-cap")
 PHI_Q = 0.45  # [-] growth-independent proteome share (Scott2010, E. coli; assumption)
 
 
 def variant(name: str) -> dict:
-    """'minimal-m0[-cap]' -> `get_model` keyword arguments."""
-    return {"capacity": name.endswith("-cap")}
+    """'minimal-m<0|2>[-cap]' -> `get_model` keyword arguments."""
+    return {"capacity": name.endswith("-cap"), "petc": name.split("-")[1]}
 
 
 def dry_weight_density(cell_volume: float = CELL_VOLUME) -> float:
@@ -110,8 +113,23 @@ def proteome_fractions(inp: LegacyInputs) -> dict[str, float]:
     return out
 
 
+Petc = Literal["m0", "m2"]
+M2_TAU = 0.1  # [min] relaxation time of the m2 electron-transport fractions (pseudo)
+
+
 def petc_closed_form() -> dict[str, float]:
+    """m0 parameters of the white-light fit (ADR 0005), kept for reference."""
     return json.loads((DATA / "surrogates" / "petc_closed_form.json").read_text())
+
+
+def petc_parameters(form: Petc) -> dict[str, float]:
+    """PETC parameters fitted to white light + LED mixtures (report 08)."""
+    return json.loads((DATA / "surrogates" / "petc_balance.json").read_text())[form]
+
+
+def m2_rate(production: float, consumption: float, tau: float) -> float:
+    """d(fraction)/dt; the scale only sets how fast the fixed point is reached."""
+    return (production - consumption) / tau
 
 
 def fitted_parameters(capacity: bool) -> dict[str, float]:
@@ -138,10 +156,16 @@ def petc_expressions(
     depth_nodes: int,
     spectral_step: int,
     light_channels: tuple[str, ...] | None = None,
+    petc: Petc = "m0",
 ) -> dict[str, sp.Expr]:
-    """Light model + closed-form PETC -> J_3PGA, J_ATP [mmol mol(Chl)^-1 s^-1] (depth
-    means) and the mean PS1 absorption `complex_abs_ps1_mean`."""
-    pc = petc_closed_form()
+    """Light model + PETC -> J_3PGA, J_ATP [mmol mol(Chl)^-1 s^-1] (depth means) and the
+    mean PS1 absorption `complex_abs_ps1_mean`.
+
+    m0: closed form. m2: per depth node the electron-transport fractions z<i>_q (PQ),
+    z<i>_s (P700/PC), z<i>_f (Fd) are states (added in `get_model`); the expressions
+    here are their fluxes, and J is the CBB flux (`synmep.petc.balance`).
+    """
+    pc = petc_parameters(petc)
     symbols = Symbols(
         chl="Chl", carotenoids="Car", cell_density="N_nL", light="light",
         phycocyanin="phycocyanin", allophycocyanin="allophycocyanin",
@@ -166,12 +190,29 @@ def petc_expressions(
         a1, a2, apbs = (
             sp.Symbol(f"{pre}complex_abs_{c}") for c in ("ps1", "ps2", "pbs")
         )
-        exprs[f"{pre}I_abs"] = a1 + pc["w_ps2"] * a2 + pc["w_pbs"] * apbs
         j3 = sp.Symbol(f"{pre}J_3PGA")
-        exprs[f"{pre}J_3PGA"] = (
-            pc["J_max"] * _tanh(sp.Symbol(f"{pre}I_abs") / pc["I_k"]) - pc["r"]
+        if petc == "m0":
+            exprs[f"{pre}I_abs"] = a1 + pc["w_ps2"] * a2 + pc["w_pbs"] * apbs
+            exprs[f"{pre}J_3PGA"] = (
+                pc["J_max"] * _tanh(sp.Symbol(f"{pre}I_abs") / pc["I_k"]) - pc["r"]
+            )
+            excess = sp.Integer(0)
+        else:
+            q, s_, f = (sp.Symbol(f"{pre}{n}") for n in ("q", "s", "f"))
+            b_eff = pc["b"] / (1 + pc["k_ocp"] * sp.Symbol(f"{pre}light_ocp"))
+            exprs[f"{pre}e1"] = pc["w1"] * (a1 + (1 - pc["phi"]) * b_eff * apbs)
+            exprs[f"{pre}e2"] = pc["w2"] * (a2 + pc["phi"] * b_eff * apbs)
+            e1, e2 = sp.Symbol(f"{pre}e1"), sp.Symbol(f"{pre}e2")
+            exprs[f"{pre}v_ps2"] = e2 * (1 - q)
+            exprs[f"{pre}v_b6f"] = pc["k_b"] * q * (1 - s_)
+            exprs[f"{pre}v_ps1"] = e1 * s_ * (1 - f)
+            exprs[f"{pre}v_cbb"] = pc["V"] * f / (pc["K"] + f)
+            vc = sp.Symbol(f"{pre}v_cbb")
+            exprs[f"{pre}J_3PGA"] = vc - pc["r"]
+            excess = (e1 * s_ - vc) / pc["V"]
+        exprs[f"{pre}J_ATP"] = (
+            pc["c0"] + pc["c1"] * j3 + pc["c2"] * j3**2 + pc.get("c3", 0.0) * excess
         )
-        exprs[f"{pre}J_ATP"] = pc["c0"] + pc["c1"] * j3 + pc["c2"] * j3**2
         for k, name in (
             ("J_3PGA", "J_3PGA"),
             ("J_ATP", "J_ATP"),
@@ -197,6 +238,7 @@ def get_model(
     spectral_step: int = 5,
     use_fit: bool = True,
     light_channels: tuple[str, ...] | None = None,
+    petc: Petc = "m0",
 ) -> Model:
     rho_dw = dry_weight_density()
     ref = metabolism.Reference(rho_dw=rho_dw)
@@ -244,7 +286,11 @@ def get_model(
 
     if light_channels is not None:
         light_sources.add_parameters(m, light_channels)
-    exprs = petc_expressions(inp, depth_nodes, spectral_step, light_channels)
+    exprs = petc_expressions(inp, depth_nodes, spectral_step, light_channels, petc)
+    if petc == "m2":
+        m.add_parameter("m2_tau", M2_TAU)
+        for i in range(depth_nodes):
+            m.add_variables({f"z{i}_q": 0.5, f"z{i}_s": 0.5, f"z{i}_f": 0.5})
     delta = sp.Add(*((sp.Symbol(f"E_{k}") - 1) * sp.Symbol(f"f_{k}") for k in LUMPS))
     exprs["protein_extra"] = delta  # [-] extra protein / proteome
     supply_scale = sp.Symbol("petc_scale")
@@ -270,6 +316,20 @@ def get_model(
         fn, args = expr_fn(expr, origin=name)
         m.add_derived(name, fn=fn, args=args)
 
+    if petc == "m2":
+        for i in range(depth_nodes):
+            pre = f"z{i}_"
+            for state, (prod, cons) in {
+                "q": ("v_ps2", "v_b6f"),
+                "s": ("v_b6f", "v_ps1"),
+                "f": ("v_ps1", "v_cbb"),
+            }.items():
+                m.add_reaction(
+                    f"{pre}net_{state}",
+                    fn=m2_rate,
+                    args=[pre + prod, pre + cons, "m2_tau"],
+                    stoichiometry={pre + state: 1},
+                )
     if dynamic:
         m.add_reaction("growth", fn=growth, args=["N", "mu"], stoichiometry={"N": 1})
     for state, flux in (("Chl", "v_chl"), ("Car", "v_car"), ("SQ", "v_sq")):
