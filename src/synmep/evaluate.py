@@ -22,7 +22,7 @@ import pandas as pd
 from mxlpy import Simulator
 from mxlpy.integrators import Sundials
 
-from synmep.data import load_legacy_inputs
+from synmep.data import M_CHL, load_legacy_inputs
 from synmep.runners import NATIVE, NATIVE_RUNNER, SUNDIALS_RUNNER
 
 if TYPE_CHECKING:
@@ -85,10 +85,11 @@ def steady_model(
     *,
     light_channels=None,
     mode: str | None = None,
+    pars: dict[str, float] | None = None,
     **light,
 ) -> Model:
     mode = a.steady_mode if mode is None else mode
-    m = _build(a, mode, folds, light_channels, light)
+    m = _build(a, mode, folds, light_channels, light, pars)
     n_var = a.n_is_variable_in_steady
     if mode != a.steady_mode and a.preculture_n_is_variable is not None:
         n_var = a.preculture_n_is_variable
@@ -100,11 +101,19 @@ def steady_model(
 
 
 def _build(
-    a: Adapter, mode: str, folds: dict[str, float], light_channels, light
+    a: Adapter,
+    mode: str,
+    folds: dict[str, float],
+    light_channels,
+    light,
+    pars: dict[str, float] | None = None,
 ) -> Model:
+    """Model for `mode` with enzyme folds, `a.fixed` and parameter values `pars`
+    (absolute values, applied last; names missing in this mode's model are skipped)."""
     if mode in a.folds_in_build:
         m = a.build(mode, light_channels=light_channels, folds=folds, **light)
         m.update_parameters(a.fixed)
+        _set(m, pars)
         return m
     m = a.build(mode, light_channels=light_channels, **light)
     p0 = m.get_parameter_values()
@@ -113,7 +122,14 @@ def _build(
         msg = f"{a.name} ({mode}): can't overexpress {sorted(missing)}"
         raise ValueError(msg)
     m.update_parameters({k: p0[k] * f for k, f in folds.items()} | a.fixed)
+    _set(m, pars)
     return m
+
+
+def _set(m: Model, pars: dict[str, float] | None) -> None:
+    if pars:
+        names = set(m.get_parameter_names())
+        m.update_parameters({k: v for k, v in pars.items() if k in names})
 
 
 def steady_state(a: Adapter, m: Model, rtol: float = 1e-5) -> pd.Series | None:
@@ -141,29 +157,31 @@ def batch(
     n_points: int = 193,
     light_channels: tuple[str, ...] | None = None,
     weights: dict[str, float] | None = None,
+    pars: dict[str, float] | None = None,
+    n0: float | None = None,
     **light,
 ) -> dict | None:
-    """Batch culture (Fig 9 protocol) of one strain; None if it fails."""
+    """Batch culture (Fig 9 protocol) of one strain; None if it fails. `pars` sets
+    parameter values, `n0` the inoculum [cells mL^-1] (default: Fig 9's)."""
     folds = folds or {}
     light = BATCH_LIGHT | light
     data = _growth_data()
-    pars = dict(weights or {})
+    pars = dict(pars or {}) | dict(weights or {})
     ms = steady_model(
         a,
         folds,
         float(data.index[24]),
         light_channels=light_channels,
         mode=a.preculture_mode,
+        pars=pars,
         **light,
     )
-    ms.update_parameters(pars)
     pre = steady_state(a, ms)
     if pre is None:
         return None
-    md = _build(a, "dynamic", folds, light_channels, light)
-    md.update_parameters(pars)
+    md = _build(a, "dynamic", folds, light_channels, light, pars)
     y0 = {k: float(pre[k]) for k in md.get_variable_names() if k in pre.index}
-    y0[a.n_name] = float(data.index[0]) / a.n_unit
+    y0[a.n_name] = (float(data.index[0]) if n0 is None else n0) / a.n_unit
     t = np.linspace(0, hours * 60, n_points)  # [min]
     res = _time_course(md, y0, t * a.time_per_min, a.chunk)
     if res is None:
@@ -183,6 +201,7 @@ def batch(
         "mu_per_h": (both[a.keys["mu"]].to_numpy() * 60).tolist(),
         "sq_mM": sq.tolist(),
         "chl_mM": both[a.keys["chl"]].tolist(),
+        "pc_per_chl": (pc_per_chl(a, both)).tolist(),
         "titer_mg_L": titer.tolist(),
         "productivity_mg_L_h": prod.tolist(),
         "best_harvest_h": float(th[best]),
@@ -246,6 +265,12 @@ def _time_course(
     return pd.concat(args), pd.concat(fluxes)
 
 
+def pc_per_chl(a: Adapter, rows: pd.DataFrame) -> np.ndarray:
+    """Phycocyanin : Chl mass ratio [mg mg^-1] (phycocyanin in mg L(cell)^-1)."""
+    pc = rows[a.keys.get("pc", "phycocyanin")].to_numpy()
+    return pc / (rows[a.keys["chl"]].to_numpy() * M_CHL)
+
+
 def turbidostat(
     a: Adapter,
     folds: dict[str, float] | None = None,
@@ -253,6 +278,7 @@ def turbidostat(
     *,
     light_channels: tuple[str, ...] | None = None,
     weights: dict[str, float] | None = None,
+    pars: dict[str, float] | None = None,
     **light,
 ) -> pd.DataFrame:
     """Steady states over cell densities (continuation from the previous one)."""
@@ -261,7 +287,9 @@ def turbidostat(
     densities = np.geomspace(3e6, 3e10, 17) if densities is None else densities
     rows, y0 = [], None
     for n in densities:
-        m = steady_model(a, folds, float(n), light_channels=light_channels, **light)
+        m = steady_model(
+            a, folds, float(n), light_channels=light_channels, pars=pars, **light
+        )
         m.update_parameters(dict(weights or {}))
         if y0 is not None:
             m.update_variables({k: v for k, v in y0.items() if k != a.n_name})
@@ -288,7 +316,9 @@ def _growth_data() -> pd.Series:
 FIG10_LIGHT = {"light": 80.0, "sample_depth": 0.02}  # as in the notebook
 
 
-def fig10(a: Adapter, *, light_channels=None, **light) -> dict:
+def fig10(
+    a: Adapter, *, light_channels=None, pars: dict[str, float] | None = None, **light
+) -> dict:
     """Fig 10: steady-state growth rate vs. cell density, against the batch data.
 
     Note: this reuses the Fig 9 measurements (every second point), read as quasi-steady
@@ -299,7 +329,9 @@ def fig10(a: Adapter, *, light_channels=None, **light) -> dict:
     light = FIG10_LIGHT | light
     dens = data.index.to_numpy()[::2]
     ref = data.to_numpy()[::2]
-    tu = turbidostat(a, densities=dens, light_channels=light_channels, **light)
+    tu = turbidostat(
+        a, densities=dens, light_channels=light_channels, pars=pars, **light
+    )
     mu = tu["mu_per_h"].to_numpy() if "mu_per_h" in tu else np.full(len(dens), np.nan)
     ok = np.isfinite(mu)
     return {
