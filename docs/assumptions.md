@@ -71,3 +71,14 @@ in the repo or the paper. These must become named, sourced parameters in v1 (ADR
 - All pools, including enzymes and pigments, are diluted by growth.
 - The 3PGA pool stands for all sugar phosphates; G3P/PYR are fixed fractions of it.
 - One lumped "carotenoids" product (2 GGPP → 1 carotenoid).
+
+## Minimal model v3 (ADR 0005)
+
+| Value | Meaning | Unit | Source / status |
+| --- | --- | --- | --- |
+| 0.83 pg cell^-1 | protein per cell (median of 36 proteomics samples) | pg | measured (`Proteomics_samples_proteinconcentration.csv`, cells from OD) |
+| 464 | dry weight per cell volume = 0.83 pg / 0.445 / 4 fL | g L^-1 | derived; replaces the gravimetric 970 g L^-1 (protein only 22 % of it) |
+| f_i (1e-5 to 2.4e-3) | WT proteome mass fraction of each lumped enzyme | – | proteomics (E0 × kDa / protein on the same basis) |
+| 0.45 | growth-independent proteome share φ_Q (proteome-cost variant) | – | Scott2010 (E. coli); assumption for Synechocystis |
+| biomass composition | cost of 1 g overexpressed protein (drain-cost variant) | mmol g^-1 | assumption: as 1 g average biomass |
+| closed-form PETC (8 parameters) | J_3PGA = J_max tanh(I/I_k) − r, J_ATP quadratic in J_3PGA | – | fitted to pfennig2024 steady states (`scripts/fit_petc_closed_form.py`) |

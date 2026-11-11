@@ -8,7 +8,7 @@ Reference documents (not ADRs, kept current):
 - [`../units.md`](../units.md) — unit system, conversion derivations, steady-state magnitudes
 - [`../assumptions.md`](../assumptions.md) — inventory of every magic number and its source
 - [`../lessons-learned.md`](../lessons-learned.md) — running notes feeding the minimal model
-- [`../reports/`](../reports/) — benchmark and comparison reports
+- [`../reports/`](../reports/) — reports, numbered in reading order (01 benchmark v0 … 06 minimal model v3)
 
 ## ADRs
 

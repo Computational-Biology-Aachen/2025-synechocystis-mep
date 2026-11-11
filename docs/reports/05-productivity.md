@@ -34,7 +34,7 @@ growth dilution, so the volumetric productivity is
     P = v_sq · N · V_cell · M_SQ        [mg L(culture)^-1 h^-1]
 
 Scan: squalene synthase level 0.1–10^4 × WT (v0/v1: its synthesis rate; g: its level) ×
-cell density 3e6–3e9 cells mL^-1, at 100 µmol m^-2 s^-1 and 1 cm light path (Fig 12
+cell density 3e6–3e10 cells mL^-1 (3e9 ≈ OD 30, roughly the practical limit), at 100 µmol m^-2 s^-1 and 1 cm light path (Fig 12
 conditions), Δshc strain. Thread g also gets a **stoichiometric bound**: all 3PGA
 supplied at that density converted to squalene (12 3PGA per squalene).
 
@@ -96,9 +96,9 @@ same density scan (`productivity_analysis.py --strains` → `productivity-strain
 |:--|:--|--:|--:|--:|--:|--:|--:|
 | v0 | IspG, DXS, IspD, Sqs | 0.059 | 1.7e9 | 0.041 | 0.0071 | 8.2 | 0.0071 |
 | v1 | DXS, Sqs, CrtB | 0.027 | 1.7e9 | 0.011 | 0.0007 | 39 | 0.0058 |
-| g-none | Sqs, CrtE, MEP | 0.55 | 1.7e9 | 0.022 | 0.018 | 30 | 0.22 |
+| g-none | Sqs, CrtE, MEP | 1.50 | 5.3e9 | 0.020 | 0.018 | 82 | 0.22 |
 | g-coupled | Sqs, CrtE, MEP, DXS | 0.58 | 1.7e9 | 0.014 | 0.065 | 8.9 | 0.37 |
-| g-photoacclimation | Sqs, CrtE | 0.41 | 5.3e8 | 0.031 | 0.085 | 4.9 | 0.41 |
+| g-photoacclimation | Sqs, CrtE | 1.41 | 1.7e10 | 0.004 | 0.085 | 17 | 0.41 |
 | g-capacity | Sqs, CrtE, MEP, DXS | 0.65 | 1.7e8 | 0.10 | 0.089 | 7.3 | 0.42 |
 
 - **More overexpressions isn't better.** In every variant culture productivity peaks
@@ -109,12 +109,13 @@ same density scan (`productivity_analysis.py --strains` → `productivity-strain
 - **Best strains:** thread g consistently says **Sqs + CrtE** (most of the gain), then
   the MEP chain and DXS (the maximum in g-coupled and g-capacity); v0 says the legacy
   IspG/DXS/IspD/Sqs set; v1 DXS/Sqs/CrtB. The best density shifts upward with the
-  overexpressions (5e8–1.7e9 cells mL^-1), except in g-capacity (1.7e8), where capacity
+  overexpressions (1.7e9 cells mL^-1 and beyond: g-none 5.3e9, g-photoacclimation 1.7e10,
+  both beyond the practical OD ~30), except in g-capacity (1.7e8), where capacity
   acclimation penalises shading.
 - **Realistic vs. free optimum:** with proteomics-based folds, thread g reaches
-  0.4–0.65 mg L^-1 h^-1, about half of the free squalene synthase optimum (1.2–1.3, at
+  0.58–0.65 mg L^-1 h^-1 in the regulated variants (g-coupled, g-capacity) at practical densities, about half of the free squalene synthase optimum (1.2–1.3, at
   100–460x WT Sqs, which no promoter delivers).
-- g-none (46/78 converged) and g-coupled (76/91) have gaps (white/broken lines): their
+- g-none (47/102 converged) and g-coupled (76/119) have gaps (white/broken lines): their
   maxima are less reliable than those of v0/v1 and the fixed-pigment variants.
 
 ## Caveats
@@ -133,3 +134,7 @@ same density scan (`productivity_analysis.py --strains` → `productivity-strain
   strain-optimisation report).
 - v1 is not recalibrated; g-none relies on the unregulated pigment model that runs into
   the dark trap.
+
+> Updated with the density scan extended to 3e10 cells mL^-1 (report 06): the free
+> squalene-synthase optima are unchanged; the strain optima of g-none and
+> g-photoacclimation moved to densities beyond OD 30.

@@ -93,3 +93,20 @@ for the minimal model.
   ranking and the productivity scan for the stopping point).
 - **Best realistic thread-g strain: Sqs + CrtE (+ MEP chain, DXS)**, 0.4–0.65 mg/L/h,
   about half the free squalene synthase optimum.
+
+## Minimal model v3 (ADR 0005, report 06)
+
+- **The gravimetric dry weight was the inconsistent number**: it contains only 22 %
+  protein. Dry weight from the measured protein (464 g L^-1) is consistent with 4 fL and
+  the cells/OD calibration.
+- **A closed-form PETC beats the polynomial** (R² 0.998 / 0.979 vs. 0.983 / 0.939, 8
+  parameters): one tanh light response plus J_ATP as a function of J_3PGA.
+- **Simulating the metabolism directly is cheap enough** (steady state ~2 s, strain
+  optimisation 3 s) and removes the surrogate's enzyme-input limitation.
+- **Strongly growth-coupled pigment synthesis (exponent 5–9) fits the batch best and
+  explains the initial growth rise** — a mechanism the constant-pigment variants lacked;
+  untested against pigment data.
+- **Enzyme-cost formulation is immaterial at realistic overexpression** (< 0.3 % in
+  productivity): pigment adjustment compensates. It would matter only at > 10^3× levels.
+- **Capacity acclimation changes the productivity answer by 3×** and moves the best
+  density to practical values; without it v3 says "as dense as possible".

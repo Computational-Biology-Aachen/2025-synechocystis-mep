@@ -1,7 +1,7 @@
 # ADR 0005: Minimal Model Design (v3)
 
-**Status:** Proposed (design; implementation pending)
-**Scope:** future `src/synmep/models/v3_minimal.py`; supersedes the v3 row of ADR 0001
+**Status:** Accepted (implemented, see §5 and `docs/reports/06-v3-minimal.md`)
+**Scope:** `src/synmep/models/v3_minimal.py`; supersedes the v3 row of ADR 0001
 
 ---
 
@@ -65,6 +65,49 @@ the findings this design rests on (`docs/lessons-learned.md`, reports
 ## 4. Consequences
 - v3 is built from thread g (not from v1), which already has the right structure; v1
   stays as the bug-fixed reference of the legacy model.
-- Open before implementation: enzyme cost formulation (cofactor drain as in v0/v1 vs.
-  proteome share), whether capacity acclimation is included, and the dry-weight /
-  cell-volume inconsistency (affects the PETC supply scale).
+- Decided at implementation (§5): both enzyme-cost formulations and both capacity
+  options are kept as variants; the dry weight is taken from the measured protein.
+
+## 5. Implementation decisions
+
+### 5.1 Variants
+`v3-<cost>[-cap]`: enzyme cost `drain` or `proteome`, capacity acclimation off/on
+(user decision: "try both" for each). With Δ = Σ_i (E_i − 1) f_i the extra protein as a
+fraction of the proteome (f_i: WT proteome mass fraction of enzyme i, from the
+proteomics):
+- **drain**: the extra protein is synthesised at μ Δ P_cell and drains 3PGA, ATP and
+  NADPH with the biomass composition (1 g protein costs like 1 g biomass).
+- **proteome**: growth and photosynthetic capacity scale with (1 − φ_Q)/(1 − φ_Q + Δ),
+  φ_Q = 0.45 (Scott2010; assumption).
+The wild type has Δ = 0, so one batch fit per capacity option serves both costs.
+
+### 5.2 Dry weight per cell volume from the measured protein
+The gravimetric dry weight of the proteomics samples (median 3.88 pg cell^-1, i.e.
+0.97 g mL^-1 at 4 fL; cells are ~0.3–0.5 g mL^-1) contains only 22 % protein (measured
+on the same samples; Synechocystis: ~45–55 %). The protein measurement, the cell count
+calibration and 4 fL are mutually consistent; the gravimetric dry weight isn't (most
+likely residual medium salts or water in the pellets, low-OD samples have ~1 mg on a 1 g
+tube). Decision: DW per cell = measured protein per cell (0.83 pg) / 0.445 = 1.85 pg,
+ρ_DW = 464 g L^-1 (was 970). Per-cell volume and cells/OD stay as in the paper. Consequences:
+- μ per unit supply doubles; absorbed into the fitted PETC efficiency.
+- Proteomics enzyme concentrations computed with DW × 0.445 are ~2× too high; v3 only
+  uses the basis-free proteome fractions f_i, and v0/v1/thread g keep their values.
+- 7.5 mg Chl OD^-1 L^-1 (source unknown) now means 3.8 % Chl in DW, high for
+  Synechocystis (typically 1–2 %); the Chl/OD value should be checked.
+
+### 5.3 PETC
+Closed form fitted to the pfennig2024 training states (`scripts/fit_petc_closed_form.py`):
+one tanh light response in a weighted absorbed light I = a_PS1 + w_PS2 a_PS2 + w_PBS a_PBS,
+and J_ATP quadratic in J_3PGA (pfennig2024's J_ATP is nearly a function of J_3PGA).
+Hold-out R² 0.998 / 0.979 vs. 0.983 / 0.939 for the degree-5 polynomial, 8 parameters,
+valid down to darkness (no ray extension needed).
+
+### 5.4 Pigment regulation
+Variant A (pigment-branch enzymes ∝ (μ/μ_ref)^c) with the exponent c fitted (bounded
+0.1–10). Fitted c = 5–9: pigment synthesis strongly follows growth.
+
+### 5.5 Outcome
+All variants meet the batch-fit and strain-ranking criteria; with capacity acclimation
+also the productivity criteria except a strictly interior density optimum (productivity
+peaks at the densest steady state). The cost formulation is immaterial at realistic
+overexpression. Recommended minimal model: `v3-proteome-cap`. Details: report 06.
