@@ -13,7 +13,7 @@ explicit: **predict the maximal squalene productivity of a culture, given the
 squalene/pigment trade-off, and the strain (overexpression set) and operating point
 that achieve it.** The work on v0/v1 and the ground-up thread g (ADR 0004) produced
 the findings this design rests on (`docs/lessons-learned.md`, reports
-`g-thread.md`, `strain-optimisation.md`, `productivity.md`).
+`03-g-thread.md`, `04-strain-optimisation.md`, `05-productivity.md`).
 
 ## 2. Decision
 

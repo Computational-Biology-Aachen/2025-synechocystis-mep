@@ -1,4 +1,4 @@
-"""Robustness of v0 vs v1 under parameter perturbations (docs/reports/v1-robustness.md).
+"""Robustness of v0 vs v1 under parameter perturbations (docs/reports/02-v1-robustness.md).
 
     uv run python scripts/robustness_v0_v1.py
 

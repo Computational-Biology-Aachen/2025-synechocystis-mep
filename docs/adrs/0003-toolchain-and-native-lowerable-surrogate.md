@@ -63,7 +63,7 @@ sympy.
   (quadratic `Add` rebuilding, `Max`/`Min` simplification over huge arguments), not in
   the backend ([MxlPy#203](https://github.com/Computational-Biology-Aachen/MxlPy/issues/203)).
   After that a steady state takes ~0.4 s. loky workers in parallel scans each compile once, so short scans run faster
-  serially (see `docs/reports/benchmark-v0.md`).
+  serially (see `docs/reports/01-benchmark-v0.md`).
 - For the retrained pfennig surrogate (stage 2), pfennig2024's spectral derived
   quantities depend only on parameters, so they are replaced by parameters
   (absorbed light per complex, OCP light). This both makes pfennig2024 lowerable and

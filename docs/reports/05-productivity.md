@@ -85,7 +85,7 @@ pigment synthesis feeds back on growth.
 ## Best setting from the MCA overexpression sequence
 
 The squalene synthase scan above varies one enzyme freely. The MCA strain optimisation
-(`strain-optimisation.md`) instead proposes a *sequence* of realistic overexpressions
+(`04-strain-optimisation.md`) instead proposes a *sequence* of realistic overexpressions
 (proteomics-based fold changes, each enzyme once). Here each strain of that sequence
 (round k = first k overexpressions) is evaluated for **culture productivity** over the
 same density scan (`productivity_analysis.py --strains` → `productivity-strains.json`).
