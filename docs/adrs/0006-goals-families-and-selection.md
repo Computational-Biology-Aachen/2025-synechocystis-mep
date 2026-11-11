@@ -1,6 +1,6 @@
 # ADR 0006: Goals, Model Families and How the Final Model Is Selected
 
-**Status:** Accepted (2026-11-11), implementation in progress
+**Status:** Accepted (2026-11-11), amended at checkpoint A (§5), implementation in progress
 **Scope:** the whole repository; supersedes the goal statements of ADR 0001 §1 and
 ADR 0005 §2.1, and the variant names used up to report 07
 
@@ -138,6 +138,25 @@ the goal answers over all passing variants is reported as structural uncertainty
 5. Shared fit and gates.
 6. Goal runs.
 7. Summary report. **Checkpoint C.**
+
+## 5. Amendments at checkpoint A (report 08)
+
+- **Gate 1** becomes: reproduce pfennig2024's *paired spectral ranking* (same culture
+  state, equal photon flux, J_3PGA relative to warm white) with a median absolute
+  ratio error ≤ 0.05. Reason: pfennig2024 is nearly additive in absorbed light (the
+  additive m0 matches its ranking to 3 %), so "non-additive" would test the wrong thing.
+- **Minimal family:** `minimal-m0` with its PETC refitted on the LED data, and
+  `minimal-m2` (mini electron transport, most accurate) as competitor. m1 is dropped
+  (no gain over m0).
+- **Double family:** retrain the PETC polynomial on the LED data and the metabolism
+  surrogate with the overexpressable enzymes (DXS, MEP, CrtE, Sqs, CrtB, Chl) as
+  inputs; gates and ranking decide.
+- **Validation:** the independent proteomics batch (cell density from OD at 4, 24, 48,
+  96 h for WT, sqs, dCas9) replaces Fig 10 as the held-out data; Fig 10 stays a reported
+  check. The **PC:Chl ratio** from the in vivo spectra joins the fit targets (it pins
+  `pbs_scale`, which the batch data can't separate from `petc_scale`).
+- **LEDs:** blue 450, orange 620, red 680 nm. Far-red 730 nm is outside the 400–700 nm
+  absorption data and can't be assessed.
 
 ## 3. Rationale
 
