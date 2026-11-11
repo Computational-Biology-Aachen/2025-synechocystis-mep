@@ -26,6 +26,7 @@ import numpy as np
 import sympy as sp
 from mxlpy import Model
 
+from synmep import acclimation
 from synmep import light as light_sources
 from synmep.data import DATA, LegacyInputs
 from synmep.exprfn import expr_fn
@@ -39,7 +40,7 @@ GrowthMode = Literal["steady", "dynamic"]
 # surrogate). The fixed-pigment variants (photoacclimation, capacity) are retired
 # (ADR 0006).
 PigmentRegulation = Literal["none", "coupled"]
-L_REF = 72.47  # [µmol(photons) mmol(Chl)^-1 s^-1] PS1 absorption at the Fig 9 median
+L_REF = acclimation.L_REF
 
 
 def _load(name: str) -> dict:
@@ -154,11 +155,13 @@ def get_model(
     pigment_regulation: PigmentRegulation = "none",
     spectral_step: int = 5,
     light_channels: tuple[str, ...] | None = None,
+    capacity: bool = False,
 ) -> Model:
     """Growth model.
 
     `depth_nodes` = 0 evaluates the PETC at the depth-averaged light. `light_channels`
-    (`synmep.light` channel names) makes the spectrum a mixture with weights `w_<name>`. `spectral_step`
+    (`synmep.light` channel names) makes the spectrum a mixture with weights `w_<name>`.
+    `capacity` adds capacity acclimation (`synmep.acclimation`). `spectral_step`
     [nm] coarsens the wavelength grid of the light model: 5 nm changes the absorbed
     light by a median 3e-4 (max 6.5 %, only in very dark culture layers) and makes the
     model ~5x smaller than at 1 nm (ADR 0004).
@@ -209,6 +212,10 @@ def get_model(
         inp, petc_poly, depth_nodes, spectral_step, light_channels
     )
     chl, scale = sp.Symbol("Chl"), sp.Symbol("petc_scale")
+    if capacity:
+        m.add_parameters(acclimation.PARAMETERS)
+        exprs |= acclimation.target_expressions()
+        scale = scale * sp.Symbol("Cap")
     exprs["S_PGA"] = sp.Max(
         sp.Symbol("J_3PGA") * chl * 0.06 * scale, sp.Symbol("S_PGA_floor")
     )
@@ -229,6 +236,8 @@ def get_model(
     if growth_mode == "steady":
         m.add_parameter("k_relax", 1.0)  # [min^-1]
     rate = "mu" if growth_mode == "dynamic" else "k_relax"
+    if capacity:
+        acclimation.add_state(m, None if growth_mode == "dynamic" else "k_relax")
     for state in ("Chl", "Car", "SQ"):
         m.add_reaction(
             f"net_{state}",

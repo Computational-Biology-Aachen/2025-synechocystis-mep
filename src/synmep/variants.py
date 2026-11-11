@@ -7,7 +7,9 @@ other enzyme folds need the retrained surrogate (ADR 0006 stage 3).
 
 from __future__ import annotations
 
+import json
 from functools import cache
+from pathlib import Path
 
 from synmep.data import load_legacy_inputs
 from synmep.evaluate import Adapter
@@ -16,14 +18,33 @@ from synmep.runners import NATIVE_RUNNER, SUNDIALS_RUNNER
 VARIANTS = (
     "single-legacy",
     "single-fixed",
+    "single-fixed-cap",
     "double-none",
+    "double-none-cap",
     "double-coupled",
+    "double-coupled-cap",
     "minimal-m0",
     "minimal-m0-cap",
 )
 
 
+FITS = Path("docs/reports/fits")
+
+
+def fit_parameters(name: str) -> dict[str, float]:
+    """Parameters of the shared fit (ADR 0006 §2.8), if done: fits/<name>.json."""
+    path = FITS / f"{name}.json"
+    return json.loads(path.read_text())["fitted"] if path.exists() else {}
+
+
+def _with_fit(m, name: str):
+    names = m.get_parameter_names()
+    m.update_parameters({k: v for k, v in fit_parameters(name).items() if k in names})
+    return m
+
+
 def _single(name: str) -> Adapter:
+    capacity = name.endswith("-cap")
     if name == "single-legacy":
         from synmep.models import single_legacy as mod
 
@@ -36,12 +57,14 @@ def _single(name: str) -> Adapter:
 
     def build(mode, *, light, sample_depth, light_channels=None):
         kw = {} if light_channels is None else {"light_channels": light_channels}
+        if capacity:
+            kw["capacity"] = True
         if kw and name == "single-legacy":
-            msg = "single-legacy has the warm white spectrum only"
+            msg = "single-legacy has the warm white spectrum only, no options"
             raise ValueError(msg)
         m = mod.get_model(inp, "dshc", mode, **kw)
         m.update_parameters({"light": light, "sample_depth_m": sample_depth})
-        return m
+        return _with_fit(m, name)
 
     return Adapter(
         name=name,
@@ -61,22 +84,28 @@ def _single(name: str) -> Adapter:
     )
 
 
-def _double(variant: str) -> Adapter:
+def _double(name: str) -> Adapter:
     from synmep.models import double, double_growth
 
+    capacity = name.endswith("-cap")
+    variant = name.removeprefix("double-").removesuffix("-cap")
     inp = load_legacy_inputs()
-    fitted = double.fitted_parameters(variant)  # type: ignore[arg-type]
+    fitted = fit_parameters(name) or double.fitted_parameters(variant)  # type: ignore[arg-type]
 
     def build(mode, *, light, sample_depth, light_channels=None):
         if mode == "turbidostat":
-            return double.get_model(
+            m = double.get_model(
                 inp, variant, light=light, sample_depth=sample_depth,
-                light_channels=light_channels,
+                light_channels=light_channels, capacity=capacity,
             )  # type: ignore[arg-type]  # fmt: skip
+            names = m.get_parameter_names()
+            m.update_parameters({k: v for k, v in fitted.items() if k in names})
+            return m
         # batch and its pre-culture: growth layer with the metabolism surrogate
         m = double_growth.get_model(
-            inp, mode, pigment_regulation=variant, light_channels=light_channels
-        )  # type: ignore[arg-type]
+            inp, mode, pigment_regulation=variant, light_channels=light_channels,
+            capacity=capacity,
+        )  # type: ignore[arg-type]  # fmt: skip
         names = m.get_parameter_names()
         m.update_parameters(
             {k: v for k, v in fitted.items() if k in names}
@@ -85,7 +114,7 @@ def _double(variant: str) -> Adapter:
         return m
 
     return Adapter(
-        name=f"double-{variant}",
+        name=name,
         build=build,
         n_name="N",
         n_unit=1.0,
@@ -104,10 +133,11 @@ def _minimal(name: str) -> Adapter:
     kw = minimal.variant(name)
 
     def build(mode, *, light, sample_depth, light_channels=None):
-        return minimal.get_model(
+        m = minimal.get_model(
             inp, growth_mode=mode, light=light, sample_depth=sample_depth,
             light_channels=light_channels, **kw,
         )  # fmt: skip
+        return _with_fit(m, name)
 
     return Adapter(
         name=name,
@@ -125,7 +155,7 @@ def adapter(name: str) -> Adapter:
     if name.startswith("single-"):
         return _single(name)
     if name.startswith("double-"):
-        return _double(name.removeprefix("double-"))
+        return _double(name)
     if name.startswith("minimal-"):
         return _minimal(name)
     msg = f"unknown variant {name!r}"

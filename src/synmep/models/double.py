@@ -19,6 +19,7 @@ from pathlib import Path
 import sympy as sp
 from mxlpy import Model
 
+from synmep import acclimation
 from synmep import light as light_sources
 from synmep.data import DATA, LegacyInputs
 from synmep.exprfn import expr_fn
@@ -52,6 +53,7 @@ def get_model(
     depth_nodes: int = 5,
     spectral_step: int = 5,
     light_channels: tuple[str, ...] | None = None,
+    capacity: bool = False,
 ) -> Model:
     m = metabolism.get_model(pigment_coupling=1.0 if variant == "coupled" else 0.0)
     m.remove_parameters(["S_PGA", "S_ATP"])
@@ -92,6 +94,10 @@ def get_model(
         depth_nodes, spectral_step, light_channels,
     )  # fmt: skip
     chl, scale = sp.Symbol("Chl"), sp.Symbol("petc_scale")
+    if capacity:
+        m.add_parameters(acclimation.PARAMETERS | {"k_relax": 1.0})
+        exprs |= acclimation.target_expressions()
+        scale = scale * sp.Symbol("Cap")
     exprs["S_PGA"] = sp.Max(
         sp.Symbol("J_3PGA") * chl * 0.06 * scale, sp.Symbol("S_PGA_floor")
     )
@@ -107,4 +113,6 @@ def get_model(
             args=[flux, state, "mu"],
             stoichiometry={state: 1},
         )
+    if capacity:  # steady state only: fast relaxation, same fixed point
+        acclimation.add_state(m, "k_relax")
     return m

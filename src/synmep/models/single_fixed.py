@@ -19,6 +19,7 @@ from typing import Literal
 import sympy as sp
 from mxlpy import Model
 
+from synmep import acclimation
 from synmep import kinetics_single_fixed as k
 from synmep import light as light_sources
 from synmep.data import CAROT, CHLA, DATA, SQUALENE, LegacyInputs
@@ -153,6 +154,7 @@ def get_model(
     strain: Strain = "dshc",
     growth_mode: GrowthMode = "steady",
     light_channels: tuple[str, ...] | None = None,
+    capacity: bool = False,
 ) -> Model:
     pars, y0 = legacy_parameters(inp, strain, growth_mode)
     S = sanitise
@@ -270,8 +272,18 @@ def get_model(
         m.add_derived(S(name), fn=fn, args=args)
     # net respiration (J_3PGA < 0) isn't drawn from the 3PGA pool; NADPH and Fd supply
     # follow 3PGA with the paper's biomass ratios (pfennig2024 has no NADPH/Fd demand)
-    m.add_derived(S("v3PGA_prod"), fn=clip_zero, args=[S("J_3PGA")])
-    m.add_derived(S("vATP_prod"), fn=clip_zero, args=["J_ATP"])
+    if capacity:  # capacity acclimation (ADR 0006) scales the PETC supply
+        m.add_parameters(acclimation.PARAMETERS)
+        targets = acclimation.target_expressions("complex_abs_ps1")
+        for name, expr in targets.items():
+            fn, args = expr_fn(expr, origin=name)
+            m.add_derived(name, fn=fn, args=args)
+        acclimation.add_state(m)
+        for j in ("J_3PGA", "J_ATP"):
+            m.add_derived(S(f"{j}_cap"), fn=k.proportional, args=[S(j), "Cap"])
+    j3, ja = (S("J_3PGA_cap"), "J_ATP_cap") if capacity else (S("J_3PGA"), "J_ATP")
+    m.add_derived(S("v3PGA_prod"), fn=clip_zero, args=[j3])
+    m.add_derived(S("vATP_prod"), fn=clip_zero, args=[ja])
     m.add_derived(
         S("vNADPH_prod"), fn=k.proportional, args=[S("v3PGA_prod"), "r_NADPH_PGA"]
     )
