@@ -60,6 +60,9 @@ class Adapter:
     steady_mode: str = "steady"
     preculture_mode: str = "steady"
     preculture_n_is_variable: bool | None = None
+    # modes whose `build` takes the enzyme folds itself (`double`'s per-strain
+    # metabolism surrogates) instead of having them applied to parameters
+    folds_in_build: tuple[str, ...] = ()
 
 
 def _row(res) -> pd.Series:
@@ -82,13 +85,7 @@ def steady_model(
     **light,
 ) -> Model:
     mode = a.steady_mode if mode is None else mode
-    m = a.build(mode, light_channels=light_channels, **light)
-    p0 = m.get_parameter_values()
-    missing = set(folds) - set(p0)
-    if missing:
-        msg = f"{a.name} ({mode}): can't overexpress {sorted(missing)}"
-        raise ValueError(msg)
-    m.update_parameters({k: p0[k] * f for k, f in folds.items()} | a.fixed)
+    m = _build(a, mode, folds, light_channels, light)
     n_var = a.n_is_variable_in_steady
     if mode != a.steady_mode and a.preculture_n_is_variable is not None:
         n_var = a.preculture_n_is_variable
@@ -96,6 +93,23 @@ def steady_model(
         m.update_variable(a.n_name, density / a.n_unit)
     else:
         m.update_parameter(a.n_name, density / a.n_unit)
+    return m
+
+
+def _build(
+    a: Adapter, mode: str, folds: dict[str, float], light_channels, light
+) -> Model:
+    if mode in a.folds_in_build:
+        m = a.build(mode, light_channels=light_channels, folds=folds, **light)
+        m.update_parameters(a.fixed)
+        return m
+    m = a.build(mode, light_channels=light_channels, **light)
+    p0 = m.get_parameter_values()
+    missing = set(folds) - set(p0)
+    if missing:
+        msg = f"{a.name} ({mode}): can't overexpress {sorted(missing)}"
+        raise ValueError(msg)
+    m.update_parameters({k: p0[k] * f for k, f in folds.items()} | a.fixed)
     return m
 
 
@@ -143,13 +157,8 @@ def batch(
     pre = steady_state(a, ms)
     if pre is None:
         return None
-    md = a.build("dynamic", light_channels=light_channels, **light)
-    p0 = md.get_parameter_values()
-    missing = set(folds) - set(p0)
-    if missing:
-        msg = f"{a.name}: no batch mode for overexpressing {sorted(missing)}"
-        raise ValueError(msg)
-    md.update_parameters({k: p0[k] * f for k, f in folds.items()} | a.fixed | pars)
+    md = _build(a, "dynamic", folds, light_channels, light)
+    md.update_parameters(pars)
     y0 = {k: float(pre[k]) for k in md.get_variable_names() if k in pre.index}
     y0[a.n_name] = float(data.index[0]) / a.n_unit
     t = np.linspace(0, hours * 60, n_points)

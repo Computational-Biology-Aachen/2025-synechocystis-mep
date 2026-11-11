@@ -33,7 +33,8 @@ __all__ = ["get_model", "load_inputs"]
 UM_TO_MM = 1e-3
 # [mmol gDW^-1] (paper Tab. biomass_stoichiometry, Knoop2013)
 BIOMASS_STOICHIOMETRY = {"3PGA": 6.934, "ATP": 0.774, "NADPH": 2.924, "Fdred": 2.300}
-PETC_POLY = DATA / "surrogates" / "petc_poly.json"
+# retrained pfennig2024 surrogate, white light + LED mixtures (report 08)
+PETC_POLY = DATA / "surrogates" / "petc_poly_led.json"
 # enzyme made per unit of synthesis rate; the legacy stoichiometry was sf * 1000 µM =
 # 0.1 µM per µM min^-1 of `ksynth`-limited rate, and cofactors 1e-4 x cost [mM], i.e.
 # 0.1 x cost per mM of enzyme rate (same behaviour, now in mM)

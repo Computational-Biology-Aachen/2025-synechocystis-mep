@@ -1,7 +1,8 @@
 """`double` family at steady growth with the explicit metabolism ODE (ADR 0004).
 
-For metabolic control analysis over all enzyme levels (Fig 12), which the metabolism
-surrogate doesn't cover (it only has E_CrtE as input). Cell density N is a parameter
+For metabolic control analysis over all enzyme parameters (Fig 12; the metabolism
+surrogate covers only the overexpressable lumps within their fold ranges, and MCA
+needs exact local derivatives) and turbidostat scans. Cell density N is a parameter
 (steady growth, e.g. turbidostat); the PETC still enters as its surrogate, the
 metabolism as the full metabolism ODE, and the slow pools as
 
@@ -26,6 +27,7 @@ from synmep.exprfn import expr_fn
 from synmep.models import metabolism
 from synmep.models.double_growth import (
     CELL_VOLUME,
+    PETC_POLY,
     PigmentRegulation,
     per_nl,
     petc_supply_expressions,
@@ -90,7 +92,7 @@ def get_model(
     if light_channels is not None:
         light_sources.add_parameters(m, light_channels)
     exprs = petc_supply_expressions(
-        inp, json.loads((DATA / "surrogates" / "petc_poly.json").read_text()),
+        inp, json.loads((DATA / "surrogates" / PETC_POLY).read_text()),
         depth_nodes, spectral_step, light_channels,
     )  # fmt: skip
     chl, scale = sp.Symbol("Chl"), sp.Symbol("petc_scale")

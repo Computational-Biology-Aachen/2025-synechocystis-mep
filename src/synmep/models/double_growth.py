@@ -7,7 +7,7 @@ squalene `SQ` [mM, intracellular]. Faster layers enter as QSS surrogates:
                 --PETC surrogate, averaged over depth--> J_3PGA, J_ATP
                                                   [mmol mol(Chl)^-1 s^-1]
                 × Chl × petc_scale --> S_PGA, S_ATP [mM min^-1]
-                --metabolism surrogate (+ E_CrtE)--> mu, X* (steady-state contents)
+                --metabolism surrogate (+ enzyme levels E_*)--> mu, X* (contents)
 
     dN/dt = mu N,   dX/dt = mu (X* - X)   (X = Chl, Car, SQ)
 
@@ -41,6 +41,9 @@ GrowthMode = Literal["steady", "dynamic"]
 # (ADR 0006).
 PigmentRegulation = Literal["none", "coupled"]
 L_REF = acclimation.L_REF
+# PETC surrogate trained on white light + LED mixtures (report 08); the metabolism
+# surrogate is per strain (`synmep.surrogates.metabolism_strain`, ADR 0006)
+PETC_POLY = "petc_poly_led.json"
 
 
 def _load(name: str) -> dict:
@@ -156,24 +159,25 @@ def get_model(
     spectral_step: int = 5,
     light_channels: tuple[str, ...] | None = None,
     capacity: bool = False,
+    folds: dict[str, float] | None = None,
 ) -> Model:
     """Growth model.
 
     `depth_nodes` = 0 evaluates the PETC at the depth-averaged light. `light_channels`
     (`synmep.light` channel names) makes the spectrum a mixture with weights `w_<name>`.
-    `capacity` adds capacity acclimation (`synmep.acclimation`). `spectral_step`
+    `capacity` adds capacity acclimation (`synmep.acclimation`). `folds` (enzyme
+    parameter -> fold vs WT) selects the strain's metabolism surrogate (trained on
+    first use). `spectral_step`
     [nm] coarsens the wavelength grid of the light model: 5 nm changes the absorbed
     light by a median 3e-4 (max 6.5 %, only in very dark culture layers) and makes the
     model ~5x smaller than at 1 nm (ADR 0004).
     """
-    petc_poly = _load("petc_poly.json") if petc_poly is None else petc_poly
+    petc_poly = _load(PETC_POLY) if petc_poly is None else petc_poly
     if metabolism_poly is None:
-        name = (
-            "metabolism_poly_pc1.json"
-            if pigment_regulation == "coupled"
-            else "metabolism_poly.json"
-        )
-        metabolism_poly = _load(name)
+        from synmep.surrogates.metabolism_strain import load_or_train
+
+        coupling = 1.0 if pigment_regulation == "coupled" else 0.0
+        metabolism_poly = load_or_train(dict(folds or {}), coupling)
     m = Model()
     m.add_variables(
         {
@@ -197,8 +201,9 @@ def get_model(
             "beta_carotene_fraction": 0.26,
             "petc_scale": 1.0,  # [-] fitted: efficiency of the PETC supply
             "S_PGA_floor": 1e-3,  # [mM min^-1] net respiration at very low light
-            "E_CrtE": 1.0,  # [-] CrtE level relative to WT (Fig 11 knock-down)
         }
+        # enzyme levels relative to WT that the metabolism surrogate takes
+        | {i: 1.0 for i in metabolism_poly["inputs"] if i.startswith("E_")}
     )
     m.add_derived("N_nL", fn=per_nl, args=["N"])
     m.add_derived("phycocyanin", fn=scaled, args=["phycocyanin_ref", "pbs_scale"])

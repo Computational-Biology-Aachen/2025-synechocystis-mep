@@ -31,6 +31,6 @@ def test_overexpression_raises_turbidostat_productivity(m0):
     assert (sqs["productivity_mg_L_h"] > wt["productivity_mg_L_h"]).all()
 
 
-def test_unknown_overexpression_is_rejected():
+def test_unknown_overexpression_is_rejected(m0):
     with pytest.raises(ValueError, match="can't overexpress"):
-        evaluate.batch(variants.adapter("double-none"), {"E_Sqs": 2.0})
+        evaluate.batch(m0, {"E_Unknown": 2.0})

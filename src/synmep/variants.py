@@ -1,8 +1,9 @@
 """Registry of the model variants in the comparison (ADR 0006 §2.3).
 
 `adapter(name)` returns the `synmep.evaluate.Adapter` of a variant. The `double`
-batch runs on the growth layer with the metabolism surrogate, which only takes E_CrtE;
-other enzyme folds need the retrained surrogate (ADR 0006 stage 3).
+batch (and its pre-culture) runs on the growth layer with a per-strain metabolism
+surrogate (trained on first use, ~2 min); its turbidostat and MCA on the metabolism
+ODE.
 """
 
 from __future__ import annotations
@@ -94,7 +95,7 @@ def _double(name: str) -> Adapter:
     inp = load_legacy_inputs()
     fitted = fit_parameters(name) or double.fitted_parameters(variant)  # type: ignore[arg-type]
 
-    def build(mode, *, light, sample_depth, light_channels=None):
+    def build(mode, *, light, sample_depth, light_channels=None, folds=None):
         if mode == "turbidostat":
             m = double.get_model(
                 inp, variant, light=light, sample_depth=sample_depth,
@@ -106,7 +107,7 @@ def _double(name: str) -> Adapter:
         # batch and its pre-culture: growth layer with the metabolism surrogate
         m = double_growth.get_model(
             inp, mode, pigment_regulation=variant, light_channels=light_channels,
-            capacity=capacity,
+            capacity=capacity, folds=folds,
         )  # type: ignore[arg-type]  # fmt: skip
         names = m.get_parameter_names()
         m.update_parameters(
@@ -125,6 +126,7 @@ def _double(name: str) -> Adapter:
         keys={"mu": "mu", "sq": "SQ", "v_sq": "v_sq", "chl": "Chl", "car": "Car"},
         steady_mode="turbidostat",
         preculture_n_is_variable=True,
+        folds_in_build=("steady", "dynamic"),
     )
 
 
