@@ -86,7 +86,8 @@ pigment synthesis feeds back on growth.
 
 The squalene synthase scan above varies one enzyme freely. The MCA strain optimisation
 (`04-strain-optimisation.md`) instead proposes a *sequence* of realistic overexpressions
-(proteomics-based fold changes, each enzyme once). Here each strain of that sequence
+(proteomics-based fold changes, each enzyme at most once, a step only with positive
+control on the score and on the squalene content). Here each strain of that sequence
 (round k = first k overexpressions) is evaluated for **culture productivity** over the
 same density scan (`productivity_analysis.py --strains` → `productivity-strains.json`).
 
@@ -94,28 +95,31 @@ same density scan (`productivity_analysis.py --strains` → `productivity-strain
 
 | variant | best strain | P max [mg/L/h] | at density [cells/mL] | μ [1/h] | P WT [mg/L/h] | gain | P after 1 OX |
 |:--|:--|--:|--:|--:|--:|--:|--:|
-| v0 | IspG, DXS, IspD, Sqs | 0.059 | 1.7e9 | 0.041 | 0.0071 | 8.2 | 0.0071 |
-| v1 | DXS, Sqs, CrtB | 0.027 | 1.7e9 | 0.011 | 0.0007 | 39 | 0.0058 |
-| g-none | Sqs, CrtE, MEP | 1.50 | 5.3e9 | 0.020 | 0.018 | 82 | 0.22 |
+| v0 | IspG, DXS, IspD, Sqs, Idi | 0.060 | 1.7e9 | 0.040 | 0.0071 | 8.5 | 0.0071 |
+| v1 | DXS, Sqs, CrtB, IspD, IspG, IspF, IspE, DXR | 0.042 | 9.5e8 | 0.021 | 0.0007 | 62 | 0.0058 |
+| g-none | Sqs (later strains converge only up to 1.7e8) | 0.22 | 3e8 | 0.030 | 0.018 | 12 | 0.22 |
 | g-coupled | Sqs, CrtE, MEP, DXS | 0.58 | 1.7e9 | 0.014 | 0.065 | 8.9 | 0.37 |
 | g-photoacclimation | Sqs, CrtE | 1.41 | 1.7e10 | 0.004 | 0.085 | 17 | 0.41 |
 | g-capacity | Sqs, CrtE, MEP, DXS | 0.65 | 1.7e8 | 0.10 | 0.089 | 7.3 | 0.42 |
 
-- **More overexpressions isn't better.** In every variant culture productivity peaks
-  after 2–4 overexpressions and then *drops*: later MCA picks (CrtB, Chl, ChlP/ChlG,
-  …) were chosen for the summed squalene + biomass response at low density, but at the
-  productive high densities they cost growth or divert precursors. The MCA criterion and
-  the culture objective agree on the first steps, not on when to stop.
-- **Best strains:** thread g consistently says **Sqs + CrtE** (most of the gain), then
-  the MEP chain and DXS (the maximum in g-coupled and g-capacity); v0 says the legacy
-  IspG/DXS/IspD/Sqs set; v1 DXS/Sqs/CrtB. The best density shifts upward with the
-  overexpressions (1.7e9 cells mL^-1 and beyond: g-none 5.3e9, g-photoacclimation 1.7e10,
-  both beyond the practical OD ~30), except in g-capacity (1.7e8), where capacity
-  acclimation penalises shading.
+- **Sequences now stop by themselves** (positive-control rule, report 04): after 3–4
+  steps in thread g and v3, 5 in v0 and 8 in v1. The pigment-enzyme steps that used to
+  end every sequence (CrtB, Chl) are gone, except in v3 with capacity acclimation.
+- **More overexpressions still isn't always better.** Steps with positive control at the
+  MCA condition (1e7 cells mL^-1) can lower productivity at the productive high
+  densities: g-photoacclimation peaks after 2 of 4 steps (Sqs, CrtE), v3 after 1–2. The
+  MCA criterion and the culture objective agree on the first steps, not on when to stop.
+- **Best strains:** thread g says **Sqs + CrtE** (most of the gain), then the MEP chain
+  and DXS (the maximum in g-coupled and g-capacity); v0 the legacy IspG/DXS/IspD/Sqs set
+  (+ Idi); v1 DXS/Sqs/CrtB plus the MEP enzymes. The best density shifts upward with the
+  overexpressions (1.7e9 cells mL^-1; g-photoacclimation 1.7e10, beyond the practical
+  OD ~30), except in g-capacity (1.7e8), where capacity acclimation penalises shading.
+- **g-none's strain result isn't reliable**: from round 2 on its strains converge only
+  up to 1.7e8 cells mL^-1 (dark trap), so its best strain is the Sqs-only strain at 3e8.
 - **Realistic vs. free optimum:** with proteomics-based folds, thread g reaches
   0.58–0.65 mg L^-1 h^-1 in the regulated variants (g-coupled, g-capacity) at practical densities, about half of the free squalene synthase optimum (1.2–1.3, at
   100–460x WT Sqs, which no promoter delivers).
-- g-none (47/102 converged) and g-coupled (76/119) have gaps (white/broken lines): their
+- g-none (26/68 converged) and g-coupled (57/85) have gaps (white/broken lines): their
   maxima are less reliable than those of v0/v1 and the fixed-pigment variants.
 
 ## Caveats
@@ -135,6 +139,7 @@ same density scan (`productivity_analysis.py --strains` → `productivity-strain
 - v1 is not recalibrated; g-none relies on the unregulated pigment model that runs into
   the dark trap.
 
-> Updated with the density scan extended to 3e10 cells mL^-1 (report 06): the free
-> squalene-synthase optima are unchanged; the strain optima of g-none and
-> g-photoacclimation moved to densities beyond OD 30.
+> Updated (1) with the density scan extended to 3e10 cells mL^-1 (report 06): the free
+> squalene-synthase optima are unchanged; and (2) with the positive-control rule of the
+> MCA sequence (report 04), which shortened the sequences and changed the v0, v1 and
+> g-none strain results.

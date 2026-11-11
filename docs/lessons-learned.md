@@ -110,3 +110,12 @@ for the minimal model.
   productivity): pigment adjustment compensates. It would matter only at > 10^3× levels.
 - **Capacity acclimation changes the productivity answer by 3×** and moves the best
   density to practical values; without it v3 says "as dense as possible".
+
+## MCA strain optimisation with positive control only
+
+- **Only take a step whose control is positive** (summed response > 0 and intracellular
+  squalene response > 0): the sequences then stop by themselves after 3–5 steps (thread g,
+  v3), instead of ending with pigment-enzyme steps that lower squalene.
+- **Local control can mislead for large overexpression steps** (folds up to ~300×): in
+  v0, v1 and g-none, enzymes with positive response coefficients lowered the squalene
+  content once overexpressed. → Check the realised step, not only the coefficient.

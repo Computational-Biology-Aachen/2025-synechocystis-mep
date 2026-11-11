@@ -126,8 +126,10 @@ literature.
   Best fit so far (μ RMSE 0.0077 h^-1, ln N 0.141; K ≈ 59, τ ≈ 100 h), captures part of
   the early rise.
 - **Strain optimisation** (Fig 12) runs on `models/g_coupled.py` (metabolism ODE +
-  growth layer at fixed density). All thread-g variants recommend Sqs, CrtE, MEP chain,
-  DXS (report: `docs/reports/04-strain-optimisation.md`).
+  growth layer at fixed density). Steps are only taken with positive control on the
+  score and on the intracellular squalene content. All thread-g variants recommend Sqs,
+  CrtE, then the MEP chain and DXS (g-none: MEP rejected, it lowers squalene as a finite
+  step), and then stop (report: `docs/reports/04-strain-optimisation.md`).
 
 ## 3. Rationale
 - QSS at each timescale boundary is physically justified (s → min → h) and keeps the

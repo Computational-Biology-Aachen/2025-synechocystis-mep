@@ -19,7 +19,7 @@ the findings this design rests on (`docs/lessons-learned.md`, reports
 
 ### 2.1 What the minimal model must answer
 1. Batch growth (Figs 9/10 data): growth-rate and density time courses.
-2. Strain optimisation (Fig 12, each enzyme once): ranking of overexpressions.
+2. Strain optimisation (Fig 12, each enzyme at most once, only steps with positive control on squalene): ranking of overexpressions.
 3. **Culture productivity**: optimum over strain × cell density (turbidostat), with
    the squalene/pigment trade-off. This is the primary question.
 

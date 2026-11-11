@@ -78,21 +78,26 @@ least squares from the 3 best points of a start grid.
   acclimation.
 - capacity_K → 100 means capacity proportional to absorbed light per Chl.
 
-## Strain optimisation (Fig 12 protocol, each enzyme once)
+## Strain optimisation (Fig 12 protocol, each enzyme at most once, positive control)
+
+A step is only taken with positive control on the score and on the intracellular
+squalene content, and only if the realised step raises the squalene content (report 04).
 
 ![strains](figures/strain-optimisation-v3.png)
 
-| variant | order | SQ start → after 1 [g/L] | μ start → end [1/h] |
+| variant | order (until no positive step) | SQ start → after 1 → end [g/L] | μ start → end [1/h] |
 | --- | --- | --- | --- |
-| g-coupled | Sqs, CrtE, MEP, DXS, CrtB, Chl | 0.79 → 3.74 | 0.087 → 0.068 |
-| g-capacity | Sqs, CrtE, MEP, DXS, CrtB, Chl | 0.72 → 2.25 | 0.121 → 0.120 |
-| v3-drain | Sqs, CrtE, MEP, DXS, CrtB, Chl | 0.94 → 3.22 | 0.082 → 0.025 |
-| v3-proteome | Sqs, CrtE, MEP, DXS, CrtB, Chl | 0.94 → 3.22 | 0.082 → 0.025 |
-| v3-drain-cap | Sqs, CrtE, MEP, DXS, CrtB, Chl | 0.81 → 2.48 | 0.105 → 0.095 |
-| v3-proteome-cap | Sqs, CrtE, MEP, DXS, CrtB, Chl | 0.81 → 2.49 | 0.105 → 0.086 |
+| g-coupled | Sqs, CrtE, MEP, DXS | 0.79 → 3.74 → 5.35 | 0.087 → 0.117 |
+| g-capacity | Sqs, CrtE, MEP, DXS | 0.72 → 2.25 → 8.71 | 0.121 → 0.120 |
+| v3-drain | Sqs, CrtE, MEP, DXS | 0.94 → 3.22 → 6.06 | 0.082 → 0.038 |
+| v3-proteome | Sqs, CrtE, MEP, DXS | 0.94 → 3.22 → 6.45 | 0.082 → 0.038 |
+| v3-drain-cap | Sqs, CrtE, MEP, DXS, CrtB, Chl | 0.81 → 2.48 → 6.18 | 0.105 → 0.095 |
+| v3-proteome-cap | Sqs, CrtE, MEP, DXS, CrtB, Chl | 0.81 → 2.49 → 6.75 | 0.105 → 0.086 |
 
-The same order as thread g in every v3 variant. Overexpressing DXS (round 4) halves
-growth in v3 without capacity acclimation.
+The same first four steps as thread g in every v3 variant. Without capacity acclimation
+the sequence stops there (no enzyme with positive control left); with it, CrtB and the
+Chl enzymes still raise squalene content (more pigment → more supply). Overexpressing
+DXS (round 4) halves growth in v3 without capacity acclimation.
 
 ## Culture productivity
 

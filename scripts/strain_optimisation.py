@@ -4,8 +4,14 @@
 
 Each round: flux response coefficients (normalised) of squalene synthesis and biomass
 synthesis to every enzyme parameter at steady growth; the enzyme with the largest sum
-is overexpressed; **each enzyme at most once**. The first round is the answer to "which
-single overexpression is best".
+is overexpressed; **each enzyme at most once**. A step is only taken if its control is
+positive: the summed response must be > 0 **and** the response of the intracellular
+squalene content (state `SQ`) must be > 0 (an overexpression that lowers the squalene
+content is pointless). Among those passing both, the best is taken unless the realised
+overexpression (a large step, where the local control can mislead) lowers the
+steady-state squalene content; then it is rejected (`rejected`) and the next one tried.
+If none is left, the sequence stops (`stop`). The first round is the answer to
+"which single overexpression is best".
 
 Overexpression is a fold change of the enzyme (v0/v1: its synthesis rate, thread g:
 its level): fold = 1 + 1.331057 kDa / (2 E0) with E0 the legacy (2 fL) proteomics
@@ -37,6 +43,7 @@ from synmep.runners import NATIVE_RUNNER, SUNDIALS_RUNNER
 warnings.filterwarnings("ignore")
 OUT = Path("docs/reports/strain-optimisation.json")
 ROUNDS = 10
+SQ_STATE = "SQ"  # intracellular squalene [mM] (all variants)
 M_SQUALENE = 410.73  # [g mol^-1]
 
 LEGACY_ENZYMES = ("DXS", "ThiG", "DXR", "IspD", "IspE", "IspF", "IspG", "IspH",
@@ -162,16 +169,34 @@ def optimise(v: Variant) -> dict:
             _with_y0(model, y0), to_scan=candidates, parallel=False, runner=v.runner
         )
         frc = rc.fluxes.T  # rows: parameters
+        sq_content = rc.variables.T[SQ_STATE]
         score = frc[v.flux_sq] + frc[v.flux_bio]
         entry["response_sq"] = frc[v.flux_sq].to_dict()
         entry["response_bio"] = frc[v.flux_bio].to_dict()
+        entry["response_sq_content"] = sq_content.to_dict()
         rounds.append(entry)
-        if score.isna().all():
+        eligible = score[(score > 0) & (sq_content > 0)].sort_values(ascending=False)
+        # the overexpression is a large step, so the local control can mislead: a step
+        # that lowers the realised squalene content is rejected, the next one tried
+        best, rejected = None, []
+        for p in map(str, eligible.index):
+            trial = copy.deepcopy(model)
+            trial.update_parameter(p, trial.get_parameter_values()[p] * v.parameters[p])
+            ss_trial = steady_state(v, trial, y0)
+            if ss_trial is not None and v.sq_content(ss_trial) > entry["sq_content_mM"]:
+                best, model = p, trial
+                break
+            rejected.append(p)
+        if rejected:
+            entry["rejected"] = rejected
+        if best is None:
+            entry["stop"] = (
+                "no enzyme with positive control on score and squalene content"
+                if eligible.empty
+                else "every eligible step lowered the squalene content"
+            )
+            print(f"  {v.name} round {k}: stop", flush=True)
             break
-        best = str(score.idxmax())
-        model.update_parameter(
-            best, model.get_parameter_values()[best] * v.parameters[best]
-        )
         chosen.append(best)
         print(f"  {v.name} round {k}: {best} (score {score[best]:.3f})", flush=True)
     return {"folds": v.parameters, "rounds": rounds}
