@@ -26,6 +26,7 @@ import numpy as np
 import sympy as sp
 from mxlpy import Model
 
+from synmep import light as light_sources
 from synmep.data import DATA, LegacyInputs
 from synmep.exprfn import expr_fn
 from synmep.models.metabolism import REFERENCE
@@ -63,7 +64,11 @@ def per_nl(n: float) -> float:
 
 
 def petc_supply_expressions(
-    inp: LegacyInputs, petc_poly: dict, depth_nodes: int, spectral_step: int
+    inp: LegacyInputs,
+    petc_poly: dict,
+    depth_nodes: int,
+    spectral_step: int,
+    light_channels: tuple[str, ...] | None = None,
 ) -> dict[str, sp.Expr]:
     """Light model + PETC surrogate -> J_3PGA, J_ATP and the mean PS1 absorption.
 
@@ -89,9 +94,10 @@ def petc_supply_expressions(
         "light_OCP": "light_ocp",
     }
     exprs: dict[str, sp.Expr] = {}
+    ch = None if light_channels is None else light_sources.channels(light_channels)
     if depth_nodes == 0:
         # PETC at the depth-averaged light (legacy)
-        exprs |= light_expressions(inp, symbols, step=spectral_step)
+        exprs |= light_expressions(inp, symbols, step=spectral_step, channels=ch)
         exprs |= expressions(
             petc_poly, {i: sp.Symbol(names[i]) for i in petc_poly["inputs"]}
         )
@@ -106,7 +112,12 @@ def petc_supply_expressions(
             pre = f"z{i}_"
             exprs[f"{pre}depth"] = float((x + 1) / 2) * sp.Symbol("sample_depth_m")
             exprs |= light_expressions(
-                inp, symbols, depth=f"{pre}depth", prefix=pre, step=spectral_step
+                inp,
+                symbols,
+                depth=f"{pre}depth",
+                prefix=pre,
+                step=spectral_step,
+                channels=ch,
             )
             # Below the training domain (dark culture layers) all inputs are scaled up
             # together to its edge (ratios stay on the training manifold) and the
@@ -142,10 +153,12 @@ def get_model(
     depth_nodes: int = 5,
     pigment_regulation: PigmentRegulation = "none",
     spectral_step: int = 5,
+    light_channels: tuple[str, ...] | None = None,
 ) -> Model:
     """Growth model.
 
-    `depth_nodes` = 0 evaluates the PETC at the depth-averaged light. `spectral_step`
+    `depth_nodes` = 0 evaluates the PETC at the depth-averaged light. `light_channels`
+    (`synmep.light` channel names) makes the spectrum a mixture with weights `w_<name>`. `spectral_step`
     [nm] coarsens the wavelength grid of the light model: 5 nm changes the absorbed
     light by a median 3e-4 (max 6.5 %, only in very dark culture layers) and makes the
     model ~5x smaller than at 1 nm (ADR 0004).
@@ -190,7 +203,11 @@ def get_model(
         "allophycocyanin", fn=scaled, args=["allophycocyanin_ref", "pbs_scale"]
     )
 
-    exprs = petc_supply_expressions(inp, petc_poly, depth_nodes, spectral_step)
+    if light_channels is not None:
+        light_sources.add_parameters(m, light_channels)
+    exprs = petc_supply_expressions(
+        inp, petc_poly, depth_nodes, spectral_step, light_channels
+    )
     chl, scale = sp.Symbol("Chl"), sp.Symbol("petc_scale")
     exprs["S_PGA"] = sp.Max(
         sp.Symbol("J_3PGA") * chl * 0.06 * scale, sp.Symbol("S_PGA_floor")

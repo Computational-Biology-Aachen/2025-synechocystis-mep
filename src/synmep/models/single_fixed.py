@@ -20,6 +20,7 @@ import sympy as sp
 from mxlpy import Model
 
 from synmep import kinetics_single_fixed as k
+from synmep import light as light_sources
 from synmep.data import CAROT, CHLA, DATA, SQUALENE, LegacyInputs
 from synmep.data_single_fixed import CELL_VOLUME, load_inputs
 from synmep.exprfn import clip_zero, expr_fn
@@ -151,6 +152,7 @@ def get_model(
     inp: LegacyInputs,
     strain: Strain = "dshc",
     growth_mode: GrowthMode = "steady",
+    light_channels: tuple[str, ...] | None = None,
 ) -> Model:
     pars, y0 = legacy_parameters(inp, strain, growth_mode)
     S = sanitise
@@ -231,6 +233,8 @@ def get_model(
     )
 
     # self-shading light model -> absorbed light per complex (explicit expressions)
+    if light_channels is not None:
+        light_sources.add_parameters(m, light_channels)
     petc = light_expressions(
         inp,
         Symbols(
@@ -245,6 +249,9 @@ def get_model(
             sample_depth="sample_depth_m",
             cell_volume="cell_volume",
         ),
+        channels=None
+        if light_channels is None
+        else light_sources.channels(light_channels),
     )
     # B1: retrained pfennig2024 surrogate (ADR 0004), bounded outside its domain;
     # outputs J_3PGA (net 3PGA production) and J_ATP [mmol mol(Chl)^-1 s^-1]

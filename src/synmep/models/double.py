@@ -19,6 +19,7 @@ from pathlib import Path
 import sympy as sp
 from mxlpy import Model
 
+from synmep import light as light_sources
 from synmep.data import DATA, LegacyInputs
 from synmep.exprfn import expr_fn
 from synmep.models import metabolism
@@ -50,6 +51,7 @@ def get_model(
     sample_depth: float = 0.01,  # legacy default
     depth_nodes: int = 5,
     spectral_step: int = 5,
+    light_channels: tuple[str, ...] | None = None,
 ) -> Model:
     m = metabolism.get_model(pigment_coupling=1.0 if variant == "coupled" else 0.0)
     m.remove_parameters(["S_PGA", "S_ATP"])
@@ -83,9 +85,11 @@ def get_model(
         "allophycocyanin", fn=scaled, args=["allophycocyanin_ref", "pbs_scale"]
     )
 
+    if light_channels is not None:
+        light_sources.add_parameters(m, light_channels)
     exprs = petc_supply_expressions(
         inp, json.loads((DATA / "surrogates" / "petc_poly.json").read_text()),
-        depth_nodes, spectral_step,
+        depth_nodes, spectral_step, light_channels,
     )  # fmt: skip
     chl, scale = sp.Symbol("Chl"), sp.Symbol("petc_scale")
     exprs["S_PGA"] = sp.Max(

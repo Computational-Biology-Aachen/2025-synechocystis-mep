@@ -66,6 +66,7 @@ def light_expressions(
     depth: str | None = None,
     prefix: str = "",
     step: int = 1,
+    channels: dict[str, np.ndarray] | None = None,
 ) -> dict[str, sp.Expr]:
     """Expressions for the self-shading light model and the absorbed light per complex.
 
@@ -73,6 +74,11 @@ def light_expressions(
     (name of a depth [m]) it is the local light `I0 e^{-k z}` at that depth, for
     depth-resolved PETC evaluation (ADR 0004). `prefix` namespaces all defined names,
     so several depths can coexist in one model.
+
+    `channels` (name -> spectrum on 400–700 nm, 1 nm, `synmep.light`) makes the
+    incident spectrum a mixture `light` sum_c w_c S_c with parameters `w_<name>`; the
+    incident light per wavelength is then defined once (`I0_<i>`, shared between
+    prefixes). Default: the warm white LED of the legacy model as constants.
 
     Returned in dependency order; every entry may reference the names of earlier
     entries, so each becomes one (small) derived quantity. Ends with the absorbed
@@ -128,7 +134,13 @@ def light_expressions(
     corrected = []
     for i in range(len(spectrum)):
         k = chl_sample * sp.Add(*(float(a[p][i]) * content[p] for p in PIGMENTS))
-        i0 = float(spectrum[i]) * S["light"]
+        if channels is None:
+            i0 = float(spectrum[i]) * S["light"]
+        else:
+            out[f"I0_{i}"] = S["light"] * sp.Add(
+                *(float(c[sl][i]) * sp.Symbol(f"w_{n}") for n, c in channels.items())
+            )
+            i0 = sp.Symbol(f"I0_{i}")
         if z is None:
             corrected.append(i0 * (sp.exp(-d * k) - 1) / (-k) / d)
         else:

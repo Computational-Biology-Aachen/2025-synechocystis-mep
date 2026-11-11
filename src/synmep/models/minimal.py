@@ -45,6 +45,7 @@ import numpy as np
 import sympy as sp
 from mxlpy import Model
 
+from synmep import light as light_sources
 from synmep.data import CELL_VOLUME as LEGACY_CELL_VOLUME
 from synmep.data import DATA, PROTEIN_CONTENT, LegacyInputs, proteomics_samples
 from synmep.exprfn import expr_fn
@@ -133,7 +134,10 @@ def _tanh(x: sp.Expr) -> sp.Expr:
 
 
 def petc_expressions(
-    inp: LegacyInputs, depth_nodes: int, spectral_step: int
+    inp: LegacyInputs,
+    depth_nodes: int,
+    spectral_step: int,
+    light_channels: tuple[str, ...] | None = None,
 ) -> dict[str, sp.Expr]:
     """Light model + closed-form PETC -> J_3PGA, J_ATP [mmol mol(Chl)^-1 s^-1] (depth
     means) and the mean PS1 absorption `complex_abs_ps1_mean`."""
@@ -145,13 +149,19 @@ def petc_expressions(
         sample_depth="sample_depth_m", cell_volume="cell_volume",
     )  # fmt: skip
     nodes, weights = np.polynomial.legendre.leggauss(depth_nodes)
+    ch = None if light_channels is None else light_sources.channels(light_channels)
     exprs: dict[str, sp.Expr] = {}
     means: dict[str, list[sp.Expr]] = {"J_3PGA": [], "J_ATP": [], "abs_ps1": []}
     for i, (x, w) in enumerate(zip(nodes, weights, strict=True)):
         pre = f"z{i}_"
         exprs[f"{pre}depth"] = float((x + 1) / 2) * sp.Symbol("sample_depth_m")
         exprs |= light_expressions(
-            inp, symbols, depth=f"{pre}depth", prefix=pre, step=spectral_step
+            inp,
+            symbols,
+            depth=f"{pre}depth",
+            prefix=pre,
+            step=spectral_step,
+            channels=ch,
         )
         a1, a2, apbs = (
             sp.Symbol(f"{pre}complex_abs_{c}") for c in ("ps1", "ps2", "pbs")
@@ -186,6 +196,7 @@ def get_model(
     depth_nodes: int = 5,
     spectral_step: int = 5,
     use_fit: bool = True,
+    light_channels: tuple[str, ...] | None = None,
 ) -> Model:
     rho_dw = dry_weight_density()
     ref = metabolism.Reference(rho_dw=rho_dw)
@@ -231,7 +242,9 @@ def get_model(
         "allophycocyanin", fn=scaled, args=["allophycocyanin_ref", "pbs_scale"]
     )
 
-    exprs = petc_expressions(inp, depth_nodes, spectral_step)
+    if light_channels is not None:
+        light_sources.add_parameters(m, light_channels)
+    exprs = petc_expressions(inp, depth_nodes, spectral_step, light_channels)
     delta = sp.Add(*((sp.Symbol(f"E_{k}") - 1) * sp.Symbol(f"f_{k}") for k in LUMPS))
     exprs["protein_extra"] = delta  # [-] extra protein / proteome
     supply_scale = sp.Symbol("petc_scale")
