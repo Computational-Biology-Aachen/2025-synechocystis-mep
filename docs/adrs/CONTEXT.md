@@ -17,3 +17,4 @@ Reference documents (not ADRs, kept current):
 → [ADR 0003 — uv + mxlpy toolchain and a native-lowerable surrogate](0003-toolchain-and-native-lowerable-surrogate.md)
 → [ADR 0004 — Ground-up three-timescale model (thread "g")](0004-ground-up-timescale-model.md)
 → [ADR 0005 — Minimal model design (v3)](0005-minimal-model-design.md)
+→ [ADR 0006 — Goals, model families and selection](0006-goals-families-and-selection.md)
