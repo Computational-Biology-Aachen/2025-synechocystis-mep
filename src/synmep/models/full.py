@@ -60,6 +60,12 @@ BIOMASS_ATP = metabolism.BIOMASS_ATP  # [mmol gDW^-1] (ADR 0006 checkpoint B)
 # lumen pH ~3, photosynthetic control stops electron transport.
 NGAM = 0.13
 KM_NGAM = 0.1  # [mM] (assumption, well below the ~8.5 mM adenylate pool)
+# biomass synthesis' NADPH half-saturation x10 vs the metabolism reference (0.149 ->
+# 1.49 mM, NADP(H) pool 0.53 mM): with the reference value biomass synthesis drains
+# NADPH in dim layers until it's nearly gone, then stops, a relaxation oscillation
+# against FNR (~4 s period) that made batches take 5-7 min. x3 still oscillates.
+# Lowers growth at given supply; the fitted efficiency compensates (report 09).
+KM_BIO_NADPH_FACTOR = 10.0
 
 
 def per_chl(total_cell: float, chl: float) -> float:
@@ -146,6 +152,7 @@ def get_model(
     pigment_coupling: float = 1.0,
     soluble_per_cell: bool = False,
     biomass_atp: float = BIOMASS_ATP,
+    km_bio_nadph_factor: float = KM_BIO_NADPH_FACTOR,
 ) -> Model:
     dynamic = growth_mode == "dynamic"
     pf = get_petc_model(clamp_pga=False)
@@ -181,6 +188,7 @@ def get_model(
     # maintenance sink balanced an assumed supply and would drain pfennig2024's
     # nearly fully charged adenylate pool
     met_pars["k_ATP_maintenance"] = 0.0
+    met_pars["Km_bio_NADPH"] *= km_bio_nadph_factor
     skip_met = ("S_PGA", "S_ATP", "r_NADPH", "atp_scale")
     m.add_parameters({k: v for k, v in met_pars.items() if k not in skip_met})
     m.add_parameters(

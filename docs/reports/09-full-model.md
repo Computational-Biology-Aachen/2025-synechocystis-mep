@@ -85,3 +85,23 @@ sinks for `full`.
   ~4 s; PC, PSII states, FNR driving force), so the solver needs tiny steps over 96 h.
   Whether pfennig2024 oscillates in dim light on its own, or only coupled, isn't
   checked yet.
+
+## Oscillation found and removed (decision: find & remove)
+
+- pfennig2024 alone at the darkest layer's exact light relaxes smoothly (with and without
+  clamped 3PGA); a one-layer coupled model doesn't oscillate either. The oscillation
+  needs the coupling in a dim layer under the demand of the brighter ones.
+- The oscillating quantity is the dark layer's NADPH (coefficient of variation 0.7,
+  period ~4 s). Interventions at the batch start: no NADPH oxidation sink or 10× smaller
+  MEP-chain capacity → still oscillates; larger NADPH half-saturation of the MEP chain,
+  Chl and squalene synthesis → still oscillates; **biomass synthesis' NADPH
+  half-saturation ×10 → gone** (×3: amplitude 0.6 %, still oscillating); 10× smaller
+  biomass capacity or no PGA storage → gone.
+- Mechanism: with K_M = 0.149 mM against a 0.53 mM NADP(H) pool, biomass synthesis keeps
+  running until NADPH is nearly gone, then stops: a relaxation oscillation against FNR.
+- Fix: `KM_BIO_NADPH_FACTOR = 10` in `full` (K_M 1.49 mM). A batch now takes **12 s**
+  (was 5–12 min). Cost before refitting: dilute μ 0.014 h^-1 (was 0.030), Chl ~80 mM,
+  and a compressed spectral response (red 0.016 > orange ≈ blue 0.015 > warm white
+  0.014 h^-1), because growth is now limited more by biomass NADPH kinetics than by
+  light. The shared fit has to restore growth and light sensitivity (biomass/CBB
+  capacity scale, pbs_scale, pigment coupling).
