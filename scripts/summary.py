@@ -18,6 +18,7 @@ mpl.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from scipy.stats import spearmanr
 
 REPORTS = Path("docs/reports")
 FIG = REPORTS / "figures"
@@ -37,6 +38,18 @@ def spectral_error(name: str) -> float:
 
 def short(names: list[str]) -> str:
     return ", ".join(e.removeprefix("E_").removesuffix("_ksynth") for e in names)
+
+
+def spectra_of(g: dict, key: str = "spectra") -> dict[str, float]:
+    return {k: v["best_productivity_mg_L_h"] for k, v in g.get(key, {}).items() if v}
+
+
+def agreement(a: dict[str, float], b: dict[str, float]) -> float:
+    """Spearman rank correlation over the light sources both have."""
+    common = sorted(set(a) & set(b))
+    if len(common) < 5:
+        return np.nan
+    return float(spearmanr([a[k] for k in common], [b[k] for k in common])[0])
 
 
 def load(folder: str) -> dict[str, dict]:
@@ -61,11 +74,7 @@ def main() -> None:
         titer = [s["batch"]["titer_end_mg_L"] for s in strains if s.get("batch")]
         turb = [s["turbidostat_best"]["productivity_mg_L_h"] for s in strains
                 if s.get("turbidostat_best")]  # fmt: skip
-        spectra = {
-            k: v["best_productivity_mg_L_h"]
-            for k, v in g.get("spectra", {}).items()
-            if v
-        }
+        spectra = spectra_of(g)
         best_spec = max(spectra, key=spectra.get) if spectra else None
         row = {
             "variant": name,
@@ -91,16 +100,22 @@ def main() -> None:
             (row["rmse_mu"] or 1) <= GATE_MU and (row["rmse_lnN"] or 9) <= GATE_LN_N
         )
         row["gate3"] = bool(row["convergence"] >= 0.95)
-        row["passes"] = row["gate1"] and row["gate2"] and row["gate3"]
+        row["gates"] = row["gate1"] + row["gate2"] + row["gate3"]
+        row["passes"] = row["gates"] == 3
+        ref = spectra_of(goals.get("full-k3", {}))
+        row["rho_full"] = agreement(spectra, ref) if name != "full-k3" else np.nan
         rows.append(row)
     df = pd.DataFrame(rows)
     passing = df[df["passes"]]
-    ranking = (
-        passing.sort_values(["validation_lnN", "aic"]) if len(passing) else passing
-    )
+    # ADR 0006: validation, then AIC among the variants passing all gates; the others
+    # follow by the number of gates passed (report 10)
+    df["_v"] = df["validation_lnN"].fillna(np.inf)
+    ranking = df.sort_values(["gates", "_v", "aic"], ascending=[False, True, True])
+    df = df.drop(columns="_v")
     out = {
         "table": df.to_dict("records"),
         "ranking": list(ranking["variant"]),
+        "passing": list(passing["variant"]),
         "spread_passing": {
             k: [float(passing[k].min()), float(passing[k].max())]
             for k in ("batch_P", "titer96", "turbidostat_P", "best_light_P")
@@ -109,9 +124,10 @@ def main() -> None:
     }
     (REPORTS / "summary.json").write_text(json.dumps(out, indent=1, default=str))
     cols1 = ["variant", "k", "rmse_mu", "rmse_lnN", "aic", "validation_lnN", "fig10_mu",
-             "spectral_err", "convergence", "gate1", "gate2", "gate3"]  # fmt: skip
+             "spectral_err", "convergence", "gate1", "gate2", "gate3",
+             "gates"]  # fmt: skip
     cols2 = ["variant", "sequence", "best_strain", "batch_P", "titer96", "turbidostat_P",
-             "best_light", "best_light_P", "warm_white_P"]  # fmt: skip
+             "best_light", "best_light_P", "warm_white_P", "rho_full"]  # fmt: skip
     print(df[cols1].to_markdown(index=False, floatfmt=".4g"))
     print()
     print(df[cols2].to_markdown(index=False, floatfmt=".3g"))
@@ -143,21 +159,18 @@ def main() -> None:
     # figure: goal 2 spectra per variant (batch productivity relative to warm white)
     fig, ax = plt.subplots(figsize=(13, 4.5), layout="constrained")
     for name, g in goals.items():
-        sp = {
-            k: v["best_productivity_mg_L_h"]
-            for k, v in g.get("spectra", {}).items()
-            if v
-        }
+        sp = spectra_of(g)
         ref = sp.get("warm_white_led:1")
         if not ref:
             continue
-        keys = list(sp)
-        ax.plot(range(len(keys)), [sp[k] / ref for k in keys], "o-", label=name)
+        keys = list(next(iter(goals.values())).get("spectra", {}))
+        y = [sp.get(k, np.nan) / ref for k in keys]
+        ax.plot(range(len(keys)), y, "o-", label=name)
     if goals:
         keys = list(next(iter(goals.values())).get("spectra", {}))
         ax.set_xticks(range(len(keys)), keys, rotation=70, fontsize=7)
     ax.axhline(1, color="grey", lw=0.5)
-    ax.set(ylabel="batch productivity / warm white")
+    ax.set(ylabel="batch productivity / warm white", yscale="log", ylim=(0.05, 20))
     ax.legend(fontsize=7)
     fig.savefig(FIG / "summary-spectra.png", dpi=100)
 
