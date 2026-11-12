@@ -34,3 +34,9 @@ def test_overexpression_raises_turbidostat_productivity(m0):
 def test_unknown_overexpression_is_rejected(m0):
     with pytest.raises(ValueError, match="can't overexpress"):
         evaluate.batch(m0, {"E_Unknown": 2.0})
+
+
+def test_sq_max_matches_dry_weight() -> None:
+    from synmep.models.minimal import dry_weight_density
+
+    assert evaluate.DW_DENSITY == pytest.approx(dry_weight_density(), rel=1e-3)

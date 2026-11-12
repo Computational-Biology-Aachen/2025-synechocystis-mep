@@ -69,7 +69,7 @@ def _steady(a, folds, pars, y0=None):
     m = evaluate.steady_model(a, folds, MCA["density"], pars=pars, **light)
     if y0:
         m.update_variables({k: v for k, v in y0.items() if k in m.get_variable_names()})
-    row = evaluate.steady_state(a, m)
+    row = evaluate.steady_state(a, m, growing=True)
     if row is None:
         return None, None
     return row, {k: float(row[k]) for k in m.get_variable_names()}

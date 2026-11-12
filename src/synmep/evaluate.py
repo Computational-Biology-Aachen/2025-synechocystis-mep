@@ -9,6 +9,12 @@ for given enzyme folds and light, and names its outputs. On top of that:
   Titer(t) = SQ(t) N(t) V_cell M_SQ [mg L^-1]; mean productivity
   P(t) = (titer(t) - titer(0)) / t; best harvest = argmax P; and titer after 96 h.
 - `turbidostat`: steady states over cell densities; P = v_sq N V_cell M_SQ.
+
+Plausibility (report 10): a pre-culture must grow (mu >= `MU_MIN`; the steady-state
+solver can land on the trivial non-growing state, from which a batch never starts), and
+a batch whose squalene content exceeds `SQ_MAX` (a quarter of the dry weight, a mass
+balance bound far above any reported terpenoid content) counts as failed: such runs are
+surrogate artefacts, not predictions.
 """
 
 from __future__ import annotations
@@ -33,6 +39,9 @@ if TYPE_CHECKING:
 M_SQ = 410.73  # [g mol^-1]
 BATCH_LIGHT = {"light": 80.0, "sample_depth": 0.0135}  # MC-1000 batch (Fig 9)
 TURBIDOSTAT_LIGHT = {"light": 100.0, "sample_depth": 0.01}  # Fig 12 / report 05
+MU_MIN = 1e-3  # [h^-1] growing pre-culture (Fig 9 data: 0.008-0.060 h^-1)
+DW_DENSITY = 463.7  # [g L^-1 cell] `synmep.models.minimal.dry_weight_density()`
+SQ_MAX = 0.25 * DW_DENSITY / M_SQ * 1e3  # [mM] 25 % of the dry weight as squalene
 
 
 @dataclass
@@ -132,13 +141,21 @@ def _set(m: Model, pars: dict[str, float] | None) -> None:
         m.update_parameters({k: v for k, v in pars.items() if k in names})
 
 
-def steady_state(a: Adapter, m: Model, rtol: float = 1e-5) -> pd.Series | None:
+def steady_state(
+    a: Adapter, m: Model, rtol: float = 1e-5, *, growing: bool = False
+) -> pd.Series | None:
     """Steady state via the runners; else a long time course whose end has a relative
-    RHS below `rtol` (slowly relaxing states, e.g. dense pre-cultures)."""
+    RHS below `rtol` (slowly relaxing states, e.g. dense pre-cultures). With `growing`,
+    states with mu < `MU_MIN` are skipped (the time course starts from the model's
+    initial values, i.e. growing cells)."""
+
+    def ok(row: pd.Series) -> bool:
+        return not growing or float(row[a.keys["mu"]]) * 60 >= MU_MIN
+
     for runner in (a.runner, SUNDIALS_RUNNER):
         res = runner.steady_state(m)
-        if hasattr(res.value, "fluxes"):
-            return _row(res)
+        if hasattr(res.value, "fluxes") and ok(row := _row(res)):
+            return row
     res = Simulator(m, integrator=NATIVE).simulate(1e5 * a.time_per_min).get_result()
     if not hasattr(res.value, "variables"):
         return None
@@ -146,7 +163,48 @@ def steady_state(a: Adapter, m: Model, rtol: float = 1e-5) -> pd.Series | None:
     rhs = m.get_right_hand_side(y.to_dict()).to_numpy()
     if np.max(np.abs(rhs) / (np.abs(y.to_numpy()) + 1e-9)) > rtol:
         return None
-    return _row(res)
+    row = _row(res)
+    return row if ok(row) else None
+
+
+def _preculture(
+    a: Adapter,
+    folds: dict[str, float],
+    density: float,
+    light_channels: tuple[str, ...] | None,
+    pars: dict[str, float],
+    light: dict[str, float],
+    steps: int = 4,
+) -> pd.Series | None:
+    """Growing pre-culture steady state. Some variants are bistable (a growing and a
+    non-growing branch); if the solver misses the growing one, follow the light from
+    warm white to the target in `steps` (cells kept under warm white, then shifted)."""
+
+    def solve(p: dict[str, float], y0: dict[str, float] | None) -> pd.Series | None:
+        m = steady_model(a, folds, density, light_channels=light_channels,
+                         mode=a.preculture_mode, pars=p, **light)  # fmt: skip
+        if y0:
+            m.update_variables({k: v for k, v in y0.items() if k != a.n_name})
+        return steady_state(a, m, growing=True)
+
+    pre = solve(pars, None)
+    w = {k: v for k, v in pars.items() if k.startswith("w_")}
+    if pre is not None or not light_channels or not w:
+        return pre
+    from synmep.light import DEFAULT, weights
+
+    w0 = weights(DEFAULT, light_channels)
+    names = list(steady_model(a, folds, density, light_channels=light_channels,
+                              mode=a.preculture_mode, pars=pars, **light)
+                 .get_variable_names())  # fmt: skip
+    y0 = None
+    for x in np.linspace(0, 1, steps + 1):
+        p = pars | {k: (1 - x) * w0[k] + x * w[k] for k in w}
+        row = solve(p, y0)
+        if row is None:
+            return None
+        y0 = {k: float(row[k]) for k in names if k in row.index}
+    return row
 
 
 def batch(
@@ -167,16 +225,7 @@ def batch(
     light = BATCH_LIGHT | light
     data = _growth_data()
     pars = dict(pars or {}) | dict(weights or {})
-    ms = steady_model(
-        a,
-        folds,
-        float(data.index[24]),
-        light_channels=light_channels,
-        mode=a.preculture_mode,
-        pars=pars,
-        **light,
-    )
-    pre = steady_state(a, ms)
+    pre = _preculture(a, folds, float(data.index[24]), light_channels, pars, light)
     if pre is None:
         return None
     md = _build(a, "dynamic", folds, light_channels, light, pars)
@@ -190,6 +239,8 @@ def batch(
     both = pd.concat([args, fl.loc[:, ~fl.columns.isin(args.columns)]], axis=1)
     n = both[a.n_name].to_numpy() * a.n_unit  # [cells mL^-1]
     sq = both[a.keys["sq"]].to_numpy()  # [mM in the cell]
+    if not np.all(np.isfinite(sq)) or np.max(sq) > SQ_MAX:
+        return None
     titer = sq * 1e-3 * n * 1e3 * a.cell_volume * M_SQ * 1e3  # [mg L^-1]
     th = t / 60
     with np.errstate(divide="ignore", invalid="ignore"):
