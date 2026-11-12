@@ -19,6 +19,10 @@ surrogate artefacts, not predictions.
 
 from __future__ import annotations
 
+import os
+import signal
+import threading
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from functools import cache
 from typing import TYPE_CHECKING
@@ -32,13 +36,14 @@ from synmep.data import M_CHL, load_legacy_inputs
 from synmep.runners import NATIVE, NATIVE_RUNNER, SUNDIALS_RUNNER
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Iterator
 
     from mxlpy import Model
 
 M_SQ = 410.73  # [g mol^-1]
 BATCH_LIGHT = {"light": 80.0, "sample_depth": 0.0135}  # MC-1000 batch (Fig 9)
 TURBIDOSTAT_LIGHT = {"light": 100.0, "sample_depth": 0.01}  # Fig 12 / report 05
+FALLBACK_S = float(os.environ.get("SYNMEP_FALLBACK_S", "60"))  # [s] Sundials budget
 MU_MIN = 1e-3  # [h^-1] growing pre-culture (Fig 9 data: 0.008-0.060 h^-1)
 DW_DENSITY = 463.7  # [g L^-1 cell] `synmep.models.minimal.dry_weight_density()`
 SQ_MAX = 0.25 * DW_DENSITY / M_SQ * 1e3  # [mM] 25 % of the dry weight as squalene
@@ -141,6 +146,29 @@ def _set(m: Model, pars: dict[str, float] | None) -> None:
         m.update_parameters({k: v for k, v in pars.items() if k in names})
 
 
+@contextmanager
+def time_limit(seconds: float | None) -> Iterator[None]:
+    """Raise TimeoutError after `seconds` of wall time (main thread, POSIX).
+
+    The Sundials fallback evaluates the right-hand side in Python, so the alarm
+    interrupts it; without a limit it can crawl for hours towards t_max = 1e9
+    (minimal-m0-cap under the fluorescent lamp, single-fixed in the MCA)."""
+    if not seconds or threading.current_thread() is not threading.main_thread():
+        yield
+        return
+
+    def handler(signum, frame):
+        raise TimeoutError
+
+    old = signal.signal(signal.SIGALRM, handler)
+    signal.setitimer(signal.ITIMER_REAL, seconds)
+    try:
+        yield
+    finally:
+        signal.setitimer(signal.ITIMER_REAL, 0)
+        signal.signal(signal.SIGALRM, old)
+
+
 def steady_state(
     a: Adapter, m: Model, rtol: float = 1e-5, *, growing: bool = False
 ) -> pd.Series | None:
@@ -153,7 +181,11 @@ def steady_state(
         return not growing or float(row[a.keys["mu"]]) * 60 >= MU_MIN
 
     for runner in (a.runner, SUNDIALS_RUNNER):
-        res = runner.steady_state(m)
+        try:
+            with time_limit(None if runner is a.runner else FALLBACK_S):
+                res = runner.steady_state(m)
+        except TimeoutError:
+            continue
         if hasattr(res.value, "fluxes") and ok(row := _row(res)):
             return row
     res = Simulator(m, integrator=NATIVE).simulate(1e5 * a.time_per_min).get_result()
