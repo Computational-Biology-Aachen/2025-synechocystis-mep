@@ -131,3 +131,29 @@ for the minimal model.
 - **For models that solve in milliseconds, serial scans beat parallel ones** by far:
   pool start-up (tens of seconds with 22 workers) dominates. Parallel only pays off for
   expensive points.
+
+## Variant comparison (report 10)
+
+- **A steady state is not automatically a living culture.** Models with pigment
+  regulation can be bistable: a growing branch and a trivial non-growing one (minimal-m0,
+  Sqs strain, > ~33 % blue light: photoacclimation lowers Chl, absorption per Chl rises,
+  Chl falls further, μ → 0, SQ accumulates to 3000 mM without dilution). The solver
+  returned that state as pre-culture and the batch reported "productivity 0" as a
+  success. → Require growth (μ ≥ 1e-3 h⁻¹) and count violations as failures.
+- **Bound the outputs by mass balance, not only by convergence.** The `double` surrogates
+  converged to SQ > 1000 mM and productivities up to 10¹⁵× warm white while their inputs
+  stayed inside the training box: high-degree polynomials misbehave in sparsely sampled
+  corners. A cap of 25 % of the dry weight as squalene catches these; plausibility
+  (μ twice the data maximum) remains a judgement call.
+- **The paper's MCA conditions don't transfer to a shaded batch.** Steps chosen at
+  1e7 cells mL⁻¹ (CrtE, MEP, DXS after Sqs) raise turbidostat productivity but lower
+  batch productivity. → Optimise the strain under the conditions of the goal.
+- **The acclimation option decides the light answer.** Orange is best without capacity
+  acclimation (~1.9× warm white), red-rich mixtures with it (~1.35×). Structural options
+  belong in the reported spread, not hidden in one default.
+- **A held-out culture that differs systematically doesn't rank models.** The
+  proteomics batch gives ln N errors of 0.6–1.0 for every variant; AIC and Fig 10 separate
+  them better.
+- **Parallel load:** 11 goal runs plus fits at once turned seconds per batch into a 3 h
+  timeout. Keep ≤ ~6 concurrent runs; and `pkill -f` with a pattern also matches the
+  calling shell when the pattern is in its command line.
