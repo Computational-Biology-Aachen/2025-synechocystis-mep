@@ -176,6 +176,56 @@
    "rho_full": NaN
   },
   {
+   "variant": "minimal-m0-cap-abs",
+   "k": 5,
+   "rmse_mu": 0.004541926275677857,
+   "rmse_lnN": 0.03417836795936905,
+   "aic": 70.44279827547949,
+   "validation_lnN": 0.7396593652139565,
+   "fig10_mu": 0.014577681279392457,
+   "spectral_err": 0.03,
+   "convergence": 0.970873786407767,
+   "sequence": "Sqs, CrtE, MEP, DXS, CrtB",
+   "best_strain": "Sqs",
+   "batch_P": 0.48092643646906025,
+   "titer96": 46.168937901029786,
+   "turbidostat_P": 6.2009742150507945,
+   "best_light": "led_orange:1",
+   "best_light_P": 2.2049172192321635,
+   "warm_white_P": 0.48103453936993906,
+   "gate1": true,
+   "gate2": true,
+   "gate3": true,
+   "gates": 3,
+   "passes": true,
+   "rho_full": NaN
+  },
+  {
+   "variant": "minimal-m0-cap-flux",
+   "k": 5,
+   "rmse_mu": 0.005652322085001652,
+   "rmse_lnN": 0.03828011106281152,
+   "aic": 106.5288989985103,
+   "validation_lnN": 1.0366186504059893,
+   "fig10_mu": 0.04938515946497039,
+   "spectral_err": 0.03,
+   "convergence": 1.0,
+   "sequence": "Sqs, CrtE, MEP, DXS",
+   "best_strain": "Sqs",
+   "batch_P": 1.562280488535903,
+   "titer96": 149.9789268994467,
+   "turbidostat_P": 3.1406211611314223,
+   "best_light": "led_orange:1",
+   "best_light_P": 2.188827746518963,
+   "warm_white_P": 1.5625231923476566,
+   "gate1": true,
+   "gate2": true,
+   "gate3": true,
+   "gates": 3,
+   "passes": true,
+   "rho_full": NaN
+  },
+  {
    "variant": "minimal-m2",
    "k": 3,
    "rmse_mu": 0.005829308541766287,
@@ -277,6 +327,8 @@
   }
  ],
  "ranking": [
+  "minimal-m0-cap-abs",
+  "minimal-m0-cap-flux",
   "minimal-m0",
   "minimal-m0-cap",
   "minimal-m2-cap",
@@ -289,6 +341,26 @@
   "double-none-cap",
   "single-fixed"
  ],
- "passing": [],
- "spread_passing": {}
+ "passing": [
+  "minimal-m0-cap-abs",
+  "minimal-m0-cap-flux"
+ ],
+ "spread_passing": {
+  "batch_P": [
+   0.48092643646906025,
+   1.562280488535903
+  ],
+  "titer96": [
+   46.168937901029786,
+   149.9789268994467
+  ],
+  "turbidostat_P": [
+   3.1406211611314223,
+   6.2009742150507945
+  ],
+  "best_light_P": [
+   2.188827746518963,
+   2.2049172192321635
+  ]
+ }
 }
