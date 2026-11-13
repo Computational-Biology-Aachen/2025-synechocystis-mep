@@ -1,0 +1,70 @@
+{
+ "variant": "minimal-m0-cap",
+ "batch_mca": {
+  "folds": {
+   "E_DXS": 20.705182409747025,
+   "E_MEP": 31.46908112771333,
+   "E_CrtE": 10.199182726765736,
+   "E_Sqs": 6.836554506985257,
+   "E_CrtB": 98.01106543726917,
+   "E_Chl": 5.64686624770206
+  },
+  "sequence": [
+   "E_Sqs"
+  ],
+  "rounds": [
+   {
+    "round": 0,
+    "overexpressed": [],
+    "productivity_mg_L_h": 0.07591697831153159,
+    "control": {
+     "E_DXS": -0.09182597112356856,
+     "E_MEP": -0.011917534045041152,
+     "E_CrtE": -0.9985669174391368,
+     "E_Sqs": 1.0082131735772046,
+     "E_CrtB": 0.1420142215799725,
+     "E_Chl": -0.3238996135372913
+    }
+   },
+   {
+    "round": 1,
+    "overexpressed": [
+     "E_Sqs"
+    ],
+    "productivity_mg_L_h": 0.39936455662264714,
+    "control": {
+     "E_DXS": -0.019455251183003282,
+     "E_MEP": -0.008022995596487247,
+     "E_CrtE": -0.31079390273472984,
+     "E_CrtB": 0.06415250909720932,
+     "E_Chl": -0.16749019473766685
+    },
+    "rejected": [
+     "E_CrtB"
+    ],
+    "stop": "no realised step raises the batch productivity"
+   }
+  ]
+ },
+ "strains": [
+  {
+   "strain": [],
+   "batch": {
+    "best_harvest_h": 96.0,
+    "best_productivity_mg_L_h": 0.07591697831153159,
+    "titer_end_mg_L": 7.288029917907032
+   }
+  },
+  {
+   "strain": [
+    "E_Sqs"
+   ],
+   "batch": {
+    "best_harvest_h": 96.0,
+    "best_productivity_mg_L_h": 0.39936455662264714,
+    "titer_end_mg_L": 38.338997435774125
+   }
+  }
+ ],
+ "wall_s": 38.968340840001474
+}

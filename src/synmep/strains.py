@@ -135,3 +135,63 @@ def strains(result: dict) -> list[dict[str, float]]:
     """Strain k = the first k overexpressions (k = 0: wild type)."""
     seq, folds = result["sequence"], result["folds"]
     return [{p: folds[p] for p in seq[:k]} for k in range(len(seq) + 1)]
+
+
+def optimise_batch(
+    a: evaluate.Adapter,
+    pars: dict[str, float] | None = None,
+    *,
+    light_channels: tuple[str, ...] | None = None,
+    weights: dict[str, float] | None = None,
+) -> dict:
+    """Overexpression sequence under the batch itself (ADR 0006 §7, goal 1 follow-up).
+
+    The objective is the batch's mean productivity over the fixed duration,
+    P = titer(96 h) / 96 h (goal 1c), under the Fig 9 protocol. Each round, the control
+    coefficients d ln P / d ln E are finite differences (1 %); the enzymes with positive
+    control are tried in order, and the first whose realised overexpression (its
+    proteomics fold) raises P is taken. Unlike `optimise`, this integrates shading and
+    the whole growth curve instead of one steady state at low density.
+    """
+    kw = {"pars": pars, "light_channels": light_channels, "weights": weights}
+
+    def productivity(folds: dict[str, float]) -> float | None:
+        b = evaluate.batch(a, folds, **kw)
+        return None if b is None else b["titer_end_mg_L"] / b["t_h"][-1]
+
+    folds_all = enzyme_folds(a)
+    chosen: dict[str, float] = {}
+    rounds = []
+    p0 = productivity(chosen)
+    for k in range(ROUNDS + 1):
+        if p0 is None or p0 <= 0:
+            rounds.append({"round": k, "failed": True})
+            break
+        entry = {"round": k, "overexpressed": list(chosen), "productivity_mg_L_h": p0}
+        candidates = [p for p in folds_all if p not in chosen]
+        if k == ROUNDS or not candidates:
+            rounds.append(entry)
+            break
+        control = {}
+        for p in candidates:
+            p1 = productivity(chosen | {p: 1 + STEP})
+            if p1 is not None and p1 > 0:
+                control[p] = np.log(p1 / p0) / np.log(1 + STEP)
+        entry["control"] = control
+        best, rejected = None, []
+        for p in sorted(
+            (p for p in control if control[p] > 0), key=lambda p: -control[p]
+        ):
+            p1 = productivity(chosen | {p: folds_all[p]})
+            if p1 is not None and p1 > p0:
+                best, p0 = p, p1
+                break
+            rejected.append(p)
+        if rejected:
+            entry["rejected"] = rejected
+        rounds.append(entry)
+        if best is None:
+            entry["stop"] = "no realised step raises the batch productivity"
+            break
+        chosen[best] = folds_all[best]
+    return {"folds": folds_all, "sequence": list(chosen), "rounds": rounds}

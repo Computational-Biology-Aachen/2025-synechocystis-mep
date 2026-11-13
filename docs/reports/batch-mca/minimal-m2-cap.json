@@ -1,0 +1,101 @@
+{
+ "variant": "minimal-m2-cap",
+ "batch_mca": {
+  "folds": {
+   "E_DXS": 20.705182409747025,
+   "E_MEP": 31.46908112771333,
+   "E_CrtE": 10.199182726765736,
+   "E_Sqs": 6.836554506985257,
+   "E_CrtB": 98.01106543726917,
+   "E_Chl": 5.64686624770206
+  },
+  "sequence": [
+   "E_Sqs",
+   "E_DXS"
+  ],
+  "rounds": [
+   {
+    "round": 0,
+    "overexpressed": [],
+    "productivity_mg_L_h": 0.08528799904801439,
+    "control": {
+     "E_DXS": -0.11325193676776425,
+     "E_MEP": -0.018691621471519627,
+     "E_CrtE": -1.8581387326832475,
+     "E_Sqs": 1.212514942520522,
+     "E_CrtB": 0.29215621685119403,
+     "E_Chl": -0.4714178143918294
+    }
+   },
+   {
+    "round": 1,
+    "overexpressed": [
+     "E_Sqs"
+    ],
+    "productivity_mg_L_h": 0.6504742080388756,
+    "control": {
+     "E_DXS": 0.013036829992309937,
+     "E_MEP": 0.0011175914831131496,
+     "E_CrtE": 0.3192819994965653,
+     "E_CrtB": 0.08811699907899344,
+     "E_Chl": -0.10933891694702304
+    },
+    "rejected": [
+     "E_CrtE",
+     "E_CrtB"
+    ]
+   },
+   {
+    "round": 2,
+    "overexpressed": [
+     "E_Sqs",
+     "E_DXS"
+    ],
+    "productivity_mg_L_h": 0.6510377104235526,
+    "control": {
+     "E_MEP": -0.0013625529497871204,
+     "E_CrtE": 0.32595511378577147,
+     "E_CrtB": 0.08680719623013561,
+     "E_Chl": -0.10745859431314359
+    },
+    "rejected": [
+     "E_CrtE",
+     "E_CrtB"
+    ],
+    "stop": "no realised step raises the batch productivity"
+   }
+  ]
+ },
+ "strains": [
+  {
+   "strain": [],
+   "batch": {
+    "best_harvest_h": 96.0,
+    "best_productivity_mg_L_h": 0.08528799904801439,
+    "titer_end_mg_L": 8.187647908609382
+   }
+  },
+  {
+   "strain": [
+    "E_Sqs"
+   ],
+   "batch": {
+    "best_harvest_h": 96.0,
+    "best_productivity_mg_L_h": 0.6504742080388756,
+    "titer_end_mg_L": 62.44552397173206
+   }
+  },
+  {
+   "strain": [
+    "E_Sqs",
+    "E_DXS"
+   ],
+   "batch": {
+    "best_harvest_h": 96.0,
+    "best_productivity_mg_L_h": 0.6510377104235526,
+    "titer_end_mg_L": 62.499620200661056
+   }
+  }
+ ],
+ "wall_s": 65.35280083499674
+}
