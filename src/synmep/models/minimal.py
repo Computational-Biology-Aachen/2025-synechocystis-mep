@@ -79,6 +79,14 @@ CapacitySignal = Literal["ps1", "abs", "flux"]
 # original rule), "abs" total absorption PS1 + PS2 + PBS [µmol mmol(Chl)^-1 s^-1],
 # "flux" PETC electron flow J_3PGA per Chl (saturates with light).
 CAPACITY_REF = {"ps1": L_REF, "abs": 146.2, "flux": 0.99}
+Pigments = Literal["light", "growth"]
+# Pigment regulation (ADR 0006 §8): "light" = photoacclimation, pigment-branch enzymes
+# (CrtB, ChlP/ChlG) scaled by clamp((L_abs / L_abs,ref)^(-g), PIGMENT_CLAMP), L_abs the
+# total depth-mean absorption per Chl, reference as `CAPACITY_REF["abs"]`, g =
+# `pigment_coupling` (fitted, start `PIGMENT_G0`); "growth" = the earlier coupling
+# (mu / mu_ref)^c (report 10; its fitted c of 6.6-13 kills cells in dim light, report 11).
+PIGMENT_G0 = 0.5
+PIGMENT_CLAMP = (0.05, 20.0)
 PHI_Q = 0.45  # [-] growth-independent proteome share (Scott2010, E. coli; assumption)
 
 
@@ -257,6 +265,7 @@ def get_model(
     petc: Petc = "m0",
     chromatic: bool = False,
     capacity_signal: CapacitySignal = "ps1",
+    pigments: Pigments = "light",
 ) -> Model:
     rho_dw = dry_weight_density()
     ref = metabolism.Reference(rho_dw=rho_dw)
@@ -299,6 +308,11 @@ def get_model(
             {k: v for k, v in fit.items() if k in m.get_parameter_names()}
         )
 
+    if pigments == "light":
+        m.update_parameter("pigment_coupling", PIGMENT_G0)
+        m.add_parameter("L_abs_ref", CAPACITY_REF["abs"])
+        m.remove_derived("E_CrtB_eff")
+        m.remove_derived("E_Chl_eff")
     m.add_derived("N_nL", fn=per_nl, args=["N"])
     m.add_derived("phycocyanin", fn=scaled, args=["phycocyanin_ref", "pbs_scale"])
     m.add_derived(
@@ -348,6 +362,17 @@ def get_model(
         m.add_parameter("V_bio_WT", v_bio_wt)
         m.remove_parameter("V_bio")
         exprs["V_bio"] = sp.Symbol("V_bio_WT") * sp.Symbol("capacity_share")
+    if pigments == "light":
+        l_abs = sp.Add(
+            *(sp.Symbol(f"complex_abs_{c}_mean") for c in ("ps1", "ps2", "pbs"))
+        )
+        exprs["pigment_factor"] = sp.Min(
+            sp.Max((l_abs / sp.Symbol("L_abs_ref")) ** -sp.Symbol("pigment_coupling"),
+                   PIGMENT_CLAMP[0]),
+            PIGMENT_CLAMP[1],
+        )  # fmt: skip
+        for e in ("CrtB", "Chl"):
+            exprs[f"E_{e}_eff"] = sp.Symbol(f"E_{e}") * sp.Symbol("pigment_factor")
     for name, expr in exprs.items():
         fn, args = expr_fn(expr, origin=name)
         m.add_derived(name, fn=fn, args=args)

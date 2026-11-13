@@ -7,7 +7,10 @@ Targets (one protocol for every variant):
 - WT Chl per cell at 4, 24, 48, 96 h (proteomics batch, `synmep.pigments`; sigma 10 %,
   since it is a different culture);
 - WT phycocyanin : Chl mass ratio at the same times (sigma 20 %), which pins
-  `pbs_scale` (the batch data only pin petc_scale x pbs_scale, report 08).
+  `pbs_scale` (the batch data only pin petc_scale x pbs_scale, report 08);
+- coloured light (Zavřel et al. 2024, `synmep.colour`, ADR 0006 §8): WT growth and Chl
+  per cell relative to the 633 nm LED under nine LEDs at 25 µmol m^-2 s^-1 (sigma 0.1
+  and 0.2; no growing state = growth 0). Skipped with --no-colour.
 
 Held out: the proteomics batch's cell densities (WT, from its 4 h sample to 96 h);
 Fig 10 is reported as a check. Fit factors are multiplicative on the variant's own
@@ -27,12 +30,13 @@ from pathlib import Path
 import numpy as np
 from scipy.optimize import least_squares
 
-from synmep import evaluate, pigments, variants
+from synmep import colour, evaluate, pigments, variants
 from synmep.data import proteomics_samples
 
 warnings.filterwarnings("ignore")
 OUT = Path("docs/reports/fits")
 SIGMA_MU, SIGMA_LN_N, SIGMA_CHL, SIGMA_PC = 0.005, 0.05, 0.10, 0.20
+SIGMA_COLOUR_GROWTH, SIGMA_COLOUR_CHL = 0.10, 0.20
 TIMES = (4, 24, 48, 96)  # [h] proteomics samples
 
 # factor name -> (model parameters it scales, lower, upper factor)
@@ -93,8 +97,12 @@ def at(b: dict, key: str, hours) -> np.ndarray:
 
 
 class Problem:
-    def __init__(self, name: str) -> None:
+    def __init__(self, name: str, use_colour: bool = True) -> None:
         self.name = name
+        self.use_colour = use_colour
+        cd = colour.data()
+        self.colour_growth = cd["growth"].to_numpy()
+        self.colour_chl = cd["chl"].to_numpy()
         self.a = variants.adapter(name)
         self.spec = spec(name)
         m = self.a.build("dynamic", **evaluate.BATCH_LIGHT)
@@ -134,8 +142,26 @@ class Problem:
                 (at(b, "pc_per_chl", TIMES) / self.tg["pc"] - 1) / SIGMA_PC,
             ])  # fmt: skip
             r = np.nan_to_num(r, nan=1e3, posinf=1e3, neginf=-1e3)
+        if self.use_colour:
+            r = np.concatenate([r, self.colour_residuals(z)])
         self.cache[key] = r
         return r
+
+    @property
+    def n_residuals(self) -> int:
+        n = 2 * len(self.data) + 2 * len(TIMES)
+        return n + (2 * len(self.colour_growth) if self.use_colour else 0)
+
+    def colour_residuals(self, z: np.ndarray) -> np.ndarray:
+        try:
+            c = colour.response(self.a, self.pars(z))
+            g, chl = c["growth"].to_numpy(), c["chl"].to_numpy()
+        except Exception:  # noqa: BLE001
+            g = chl = np.full(len(self.colour_growth), np.nan)
+        rg = (g - self.colour_growth) / SIGMA_COLOUR_GROWTH
+        # Chl only where both exist (no growth: no pigment state; 596 nm: no data)
+        rc = np.nan_to_num((chl - self.colour_chl) / SIGMA_COLOUR_CHL, nan=0.0)
+        return np.concatenate([np.nan_to_num(rg, nan=1e3), rc])
 
 
 def main() -> None:
@@ -144,8 +170,9 @@ def main() -> None:
     parser.add_argument("--quick", action="store_true", help="small grid, few steps")
     parser.add_argument("--start", help="JSON of factors to start from (no grid)")
     parser.add_argument("--max-nfev", type=int)
+    parser.add_argument("--no-colour", action="store_true")
     args = parser.parse_args()
-    prob = Problem(args.variant)
+    prob = Problem(args.variant, use_colour=not args.no_colour)
     k = len(prob.spec)
     rng = np.random.default_rng(0)
     n_grid, n_starts, max_nfev = (6, 1, 15) if args.quick else (16, 2, 40)
@@ -191,7 +218,7 @@ def main() -> None:
     if b is not None:
         mu = at(b, "mu_per_h", prob.t_data)
         n = at(b, "N", prob.t_data)
-        n_obs = 2 * len(prob.data) + 2 * len(TIMES)
+        n_obs = prob.n_residuals
         report |= {
             "rmse_mu_per_h": float(np.sqrt(np.mean((mu - prob.data.to_numpy()) ** 2))),
             "rmse_ln_N": float(
@@ -209,6 +236,14 @@ def main() -> None:
             pred = at(v, "N", np.array(TIMES[1:]) - TIMES[0])
             err = np.log(pred) - np.log(prob.tg["cells"][1:])
             report["validation_rmse_ln_N"] = float(np.sqrt(np.mean(err**2)))
+        c = colour.response(prob.a, pars)
+        report["colour"] = {
+            str(k): v for k, v in c[["growth", "chl"]].T.to_dict().items()
+        }
+        report["colour_rmse_growth"] = float(
+            np.sqrt(np.mean((c["growth"].to_numpy() - prob.colour_growth) ** 2))
+        )
+        report["colour_n_no_growth"] = int((c["growth"] <= 0).sum())
         try:
             f10 = evaluate.fig10(prob.a, pars=pars)
             report["fig10_rmse_mu_per_h"] = f10["rmse_mu_per_h"]

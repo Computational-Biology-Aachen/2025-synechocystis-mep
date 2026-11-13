@@ -203,3 +203,15 @@ the goal answers over all passing variants is reported as structural uncertainty
   coloured-light data are sought to constrain it.
 - **Goal 1 follow-up:** an MCA under batch conditions (control of the batch
   productivity itself), since the paper protocol's later steps lower it.
+
+## 8. Decisions after report 11 (2026-11-13)
+
+- **Pigment regulation becomes photoacclimation** in `minimal` and `full`: pigment-branch
+  enzyme activity rises as total absorbed light per Chl falls,
+  E_eff = E · clamp((L_abs / L_abs,ref)^(−g), 0.05, 20), g fitted (in place of the
+  growth coupling (μ/μ_ref)^c, whose fitted c = 6.6–13 killed cells in dim light).
+- **The Zavřel et al. 2024 colour data are a fit target** of the shared fit: WT growth
+  and Chl per cell relative to the 633 nm LED under nine LEDs at 25 µmol m⁻² s⁻¹.
+- **`full` gets both energy outlets:** photosynthetic control (lumen-pH-dependent b6f)
+  and a saturating ATP overflow sink, plus NADH re-oxidation in dark layers and a check
+  of the CO₂ exchange; each change to pfennig2024 is reported.

@@ -170,7 +170,12 @@ def time_limit(seconds: float | None) -> Iterator[None]:
 
 
 def steady_state(
-    a: Adapter, m: Model, rtol: float = 1e-5, *, growing: bool = False
+    a: Adapter,
+    m: Model,
+    rtol: float = 1e-5,
+    *,
+    growing: bool = False,
+    fallback: bool = True,
 ) -> pd.Series | None:
     """Steady state via the runners; else a long time course whose end has a relative
     RHS below `rtol` (slowly relaxing states, e.g. dense pre-cultures). With `growing`,
@@ -180,7 +185,7 @@ def steady_state(
     def ok(row: pd.Series) -> bool:
         return not growing or float(row[a.keys["mu"]]) * 60 >= MU_MIN
 
-    for runner in (a.runner, SUNDIALS_RUNNER):
+    for runner in (a.runner, SUNDIALS_RUNNER) if fallback else (a.runner,):
         try:
             with time_limit(None if runner is a.runner else FALLBACK_S):
                 res = runner.steady_state(m)
@@ -188,6 +193,8 @@ def steady_state(
             continue
         if hasattr(res.value, "fluxes") and ok(row := _row(res)):
             return row
+    if not fallback:
+        return None
     t_end = 1e5 * a.time_per_min
     res = (
         Simulator(m, integrator=NATIVE)
