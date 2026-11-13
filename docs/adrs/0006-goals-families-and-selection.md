@@ -1,6 +1,6 @@
 # ADR 0006: Goals, Model Families and How the Final Model Is Selected
 
-**Status:** Accepted (2026-11-11), amended at checkpoint A (§5), implementation in progress
+**Status:** Accepted (2026-11-11), amended at checkpoints A (§5), B (§6) and C (§7); selection made, follow-ups in progress
 **Scope:** the whole repository; supersedes the goal statements of ADR 0001 §1 and
 ADR 0005 §2.1, and the variant names used up to report 07
 
@@ -187,3 +187,19 @@ the goal answers over all passing variants is reported as structural uncertainty
   and pfennig2024's respiration saturate with their substrates so they stop at low
   supply, and add a fitted PETC/CBB efficiency like the surrogate families; changes to
   pfennig2024 are reported.
+
+## 7. Outcome at checkpoint C (report 10, 2026-11-13)
+
+- **Selected: `minimal-m0-cap`**, with chromatic acclimation for goal 2. It is accepted
+  although it misses gate 3 by 0.4 % (88/93 runs; the failures are turbidostat densities
+  beyond the optimum and blue light without chromatic acclimation). Best fit by far
+  (AIC 60), gates 1 and 2 passed.
+- **`double` and `single` are retired** from further work. Code and reports stay as
+  history; they are no longer refitted or rerun.
+- **`full` continues:** its low-light behaviour (dim layers, Sqs strain batch, spectral
+  runs) is to be fixed so that it can serve as the reference for goal 2.
+- **Capacity rule:** the goal-2 gain hinges on capacity acclimation driven by PS1
+  absorption. Alternatives (total absorbed light, electron flow) are tested, and
+  coloured-light data are sought to constrain it.
+- **Goal 1 follow-up:** an MCA under batch conditions (control of the batch
+  productivity itself), since the paper protocol's later steps lower it.

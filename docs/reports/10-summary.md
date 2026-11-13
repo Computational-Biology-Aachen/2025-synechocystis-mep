@@ -1,7 +1,7 @@
 # Report 10: comparison of all variants and selection
 
-**Status:** draft for checkpoint C (ADR 0006 §2.10), 2026-11-13. The selection in §5
-needs the user's decisions in §6 before ADR 0006 is closed.
+**Status:** accepted at checkpoint C (2026-11-13): decisions in §6 answered as recorded in
+ADR 0006 §7 (selection accepted; double and single retired; full, capacity rule and batch MCA as follow-ups).
 
 Numbers: `docs/reports/summary.json` (`scripts/summary.py`), per variant
 `docs/reports/fits/<variant>.json` (shared fit, `scripts/shared_fit.py`) and
