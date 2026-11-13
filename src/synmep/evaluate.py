@@ -188,12 +188,24 @@ def steady_state(
             continue
         if hasattr(res.value, "fluxes") and ok(row := _row(res)):
             return row
-    res = Simulator(m, integrator=NATIVE).simulate(1e5 * a.time_per_min).get_result()
+    t_end = 1e5 * a.time_per_min
+    res = (
+        Simulator(m, integrator=NATIVE)
+        .simulate_time_course(np.linspace(0, t_end, 11))
+        .get_result()
+    )
     if not hasattr(res.value, "variables"):
         return None
-    y = res.value.variables.iloc[-1][m.get_variable_names()]
+    v = res.value.variables[m.get_variable_names()]
+    y = v.iloc[-1]
     rhs = m.get_right_hand_side(y.to_dict()).to_numpy()
-    if np.max(np.abs(rhs) / (np.abs(y.to_numpy()) + 1e-9)) > rtol:
+    scale = np.abs(y.to_numpy()) + 1e-9
+    # settled: small relative RHS, or (fast pools with integrator noise, e.g. lumen
+    # protons in `full`, model time in s) < 1e-4 relative change over the last tenth
+    settled = np.max(np.abs(rhs) / scale) <= rtol or (
+        np.max(np.abs(y.to_numpy() - v.iloc[-2].to_numpy()) / scale) <= 1e-4
+    )
+    if not settled:
         return None
     row = _row(res)
     return row if ok(row) else None
@@ -208,31 +220,43 @@ def _preculture(
     light: dict[str, float],
     steps: int = 4,
 ) -> pd.Series | None:
-    """Growing pre-culture steady state. Some variants are bistable (a growing and a
-    non-growing branch); if the solver misses the growing one, follow the light from
-    warm white to the target in `steps` (cells kept under warm white, then shifted)."""
+    """Growing pre-culture steady state.
 
-    def solve(p: dict[str, float], y0: dict[str, float] | None) -> pd.Series | None:
-        m = steady_model(a, folds, density, light_channels=light_channels,
+    If the solver misses it from the model's initial values (bistable variants with a
+    non-growing branch; `full`, whose initial values are far from a living cell), it
+    follows the history of a real culture: the wild type under warm white, then the
+    light shifted to the target and the enzyme folds raised to theirs (log steps),
+    each step starting from the previous state.
+    """
+    names: list[str] = []
+
+    def solve(f: dict[str, float], p: dict[str, float], y0) -> pd.Series | None:
+        m = steady_model(a, f, density, light_channels=light_channels,
                          mode=a.preculture_mode, pars=p, **light)  # fmt: skip
+        names[:] = m.get_variable_names()
         if y0:
             m.update_variables({k: v for k, v in y0.items() if k != a.n_name})
         return steady_state(a, m, growing=True)
 
-    pre = solve(pars, None)
-    w = {k: v for k, v in pars.items() if k.startswith("w_")}
-    if pre is not None or not light_channels or not w:
+    pre = solve(folds, pars, None)
+    if pre is not None:
         return pre
-    from synmep.light import DEFAULT, weights
+    w = {k: v for k, v in pars.items() if k.startswith("w_")}
+    path: list[tuple[dict[str, float], dict[str, float]]] = []
+    if light_channels and w:
+        from synmep.light import DEFAULT, weights
 
-    w0 = weights(DEFAULT, light_channels)
-    names = list(steady_model(a, folds, density, light_channels=light_channels,
-                              mode=a.preculture_mode, pars=pars, **light)
-                 .get_variable_names())  # fmt: skip
-    y0 = None
-    for x in np.linspace(0, 1, steps + 1):
-        p = pars | {k: (1 - x) * w0[k] + x * w[k] for k in w}
-        row = solve(p, y0)
+        w0 = weights(DEFAULT, light_channels)
+        path += [({}, pars | {k: (1 - x) * w0[k] + x * w[k] for k in w})
+                 for x in np.linspace(0, 1, steps + 1)]  # fmt: skip
+    else:
+        path.append(({}, pars))
+    if folds:
+        path += [({k: v**x for k, v in folds.items()}, pars)
+                 for x in np.linspace(0, 1, steps + 1)[1:]]  # fmt: skip
+    y0, row = None, None
+    for f, p in path:
+        row = solve(f, p, y0)
         if row is None:
             return None
         y0 = {k: float(row[k]) for k in names if k in row.index}

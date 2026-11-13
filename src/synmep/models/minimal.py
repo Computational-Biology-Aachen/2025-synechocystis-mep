@@ -70,13 +70,23 @@ LUMPS = {
     "CrtB": ("CrtB",),
     "Chl": ("ChlP", "ChlG"),
 }
-VARIANTS = ("minimal-m0", "minimal-m0-cap", "minimal-m2", "minimal-m2-cap")
+VARIANTS = ("minimal-m0", "minimal-m0-cap", "minimal-m2", "minimal-m2-cap",
+            "minimal-m0-cap-abs", "minimal-m0-cap-flux")  # fmt: skip
+CapacitySignal = Literal["ps1", "abs", "flux"]
+# What drives capacity acclimation (ADR 0006 §7), relative to its value at the
+# reference state (fitted minimal-m0-cap, steady at the Fig 9 median density 4.2e8 mL^-1,
+# batch light, warm white; report 11): "ps1" depth-mean PS1 absorption (L_REF, the
+# original rule), "abs" total absorption PS1 + PS2 + PBS [µmol mmol(Chl)^-1 s^-1],
+# "flux" PETC electron flow J_3PGA per Chl (saturates with light).
+CAPACITY_REF = {"ps1": L_REF, "abs": 146.2, "flux": 0.99}
 PHI_Q = 0.45  # [-] growth-independent proteome share (Scott2010, E. coli; assumption)
 
 
 def variant(name: str) -> dict:
-    """'minimal-m<0|2>[-cap]' -> `get_model` keyword arguments."""
-    return {"capacity": name.endswith("-cap"), "petc": name.split("-")[1]}
+    """'minimal-m<0|2>[-cap[-abs|-flux]]' -> `get_model` keyword arguments."""
+    capacity = "-cap" in name
+    signal = name.split("-cap-")[1] if "-cap-" in name else "ps1"
+    return {"capacity": capacity, "petc": name.split("-")[1], "capacity_signal": signal}
 
 
 def dry_weight_density(cell_volume: float = CELL_VOLUME) -> float:
@@ -246,6 +256,7 @@ def get_model(
     light_channels: tuple[str, ...] | None = None,
     petc: Petc = "m0",
     chromatic: bool = False,
+    capacity_signal: CapacitySignal = "ps1",
 ) -> Model:
     rho_dw = dry_weight_density()
     ref = metabolism.Reference(rho_dw=rho_dw)
@@ -278,7 +289,10 @@ def get_model(
     )
     if capacity:
         m.add_variable("Cap", 1.0)
-        m.add_parameters({"L_ref": L_REF, "capacity_K": 1.0, "capacity_tau": 600.0})
+        m.add_parameters(
+            {"L_ref": CAPACITY_REF[capacity_signal], "capacity_K": 1.0,
+             "capacity_tau": 600.0}
+        )  # fmt: skip
     if use_fit:
         fit = fitted_parameters(capacity)
         m.update_parameters(
@@ -309,7 +323,13 @@ def get_model(
         exprs["capacity_share"] = (1 - phi_q) / (1 - phi_q + sp.Symbol("protein_extra"))
         supply_scale = supply_scale * sp.Symbol("capacity_share")
     if capacity:
-        exprs["L_rel"] = sp.Symbol("complex_abs_ps1_mean") / sp.Symbol("L_ref")
+        signal = {
+            "ps1": sp.Symbol("complex_abs_ps1_mean"),
+            "abs": sp.Add(*(sp.Symbol(f"complex_abs_{c}_mean")
+                            for c in ("ps1", "ps2", "pbs"))),
+            "flux": sp.Symbol("J_3PGA"),
+        }[capacity_signal]  # fmt: skip
+        exprs["L_rel"] = signal / sp.Symbol("L_ref")
         k_cap, l_rel = sp.Symbol("capacity_K"), sp.Symbol("L_rel")
         exprs["Cap_target"] = (1 + k_cap) * l_rel / (k_cap + l_rel)
         supply_scale = supply_scale * sp.Symbol("Cap")

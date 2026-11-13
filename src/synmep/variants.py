@@ -29,6 +29,8 @@ VARIANTS = (
     "minimal-m0-cap",
     "minimal-m2",
     "minimal-m2-cap",
+    "minimal-m0-cap-abs",
+    "minimal-m0-cap-flux",
     "full-k3",
 )
 

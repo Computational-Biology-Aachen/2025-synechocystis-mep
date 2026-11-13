@@ -70,7 +70,7 @@ def spec(name: str) -> dict:
     family = name.split("-")[0]
     key = "single-fixed" if name.startswith("single-fixed") else family
     s = dict(SPECS[key])
-    if name.endswith("-cap"):
+    if "-cap" in name:
         s |= CAP
     return s
 

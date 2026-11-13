@@ -1,0 +1,15 @@
+# Zavrel et al. 2024, Plant Cell Physiol (doi 10.1093/pcp/pcae062), raw data
+# figshare 10.6084/m9.figshare.23330363.v1, 'Data table.xlsx': medians over replicates.
+# Batch flasks, BG-11, air, 24 C, 14:10 h light:dark, 25 umol photons m-2 s-1 per LED,
+# inoculum OD750 0.2. growth_rate column is labelled h-1 in the source; the values
+# (0.08-0.33) only make sense as d-1 at this light: use relative values only.
+peak_nm,growth_rate,chl_fmol_cell,pbs_fg_cell,car_per_chl,psi_psii_ru,growth_rate_sd,growth_rate_n
+435,0.20096,0.07093,490.61683,0.97589,2.59345,0.09971,7
+465,0.07554,0.04791,192.25146,0.60136,4.07099,0.04199,7
+495,0.12639,0.05725,267.29668,0.6776,4.08103,0.04748,7
+520,0.19051,0.07383,384.21363,0.5456,4.83999,0.04565,7
+555,0.2706,0.09441,630.20538,0.58666,5.89913,0.04064,7
+596,0.29826,,664.72883,,6.67153,0.04019,3
+633,0.32526,0.05234,487.29458,0.71114,6.18879,0.04547,7
+663,0.32743,0.06747,568.42244,0.77959,5.30073,0.04724,7
+687,0.23024,0.06043,638.99561,1.07967,2.19355,0.0629,7

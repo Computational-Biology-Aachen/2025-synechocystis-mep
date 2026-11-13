@@ -30,3 +30,11 @@ def test_warm_white_channel_reproduces_the_baked_in_spectrum():
     b = mixed.value.get_args().iloc[-1]
     # equal up to the renormalisation of the channel spectra (~1e-4)
     assert b["mu"] == pytest.approx(a["mu"], rel=1e-3)
+
+
+def test_led_by_peak_wavelength() -> None:
+    from synmep import light
+
+    s = light.channels(("led_465", "led_blue"))
+    assert light.WAVELENGTHS[np.argmax(s["led_465"])] == 465
+    assert light.WAVELENGTHS[np.argmax(s["led_blue"])] == 450

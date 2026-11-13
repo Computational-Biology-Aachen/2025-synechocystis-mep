@@ -54,12 +54,14 @@ def led(peak: float, fwhm: float = LED_FWHM) -> np.ndarray:
 
 
 def channels(names: tuple[str, ...] = LAMPS + LEDS) -> dict[str, np.ndarray]:
-    """Spectra by channel name (lamp names, `led_<colour>`)."""
+    """Spectra by channel name (lamp names, `led_<colour>` or `led_<peak nm>`)."""
     out = {}
     for n in names:
-        out[n] = (
-            led(LED_PEAKS[n.removeprefix("led_")]) if n.startswith("led_") else lamp(n)
-        )
+        if n.startswith("led_"):
+            key = n.removeprefix("led_")
+            out[n] = led(float(key) if key.isdigit() else LED_PEAKS[key])
+        else:
+            out[n] = lamp(n)
     return out
 
 
