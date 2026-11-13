@@ -24,8 +24,9 @@ Structure:
   instead; without also converting the per-Chl Michaelis constants that creates a
   positive feedback (more Chl -> less NADP per Chl -> slower CBB -> slower growth ->
   more Chl), so the default keeps pfennig2024's per-Chl totals.
-- mu = sum_i w_i v_bio,i / rho_DW; pigment-branch enzymes scale with growth (as
-  `minimal`, exponent `pigment_coupling`); dry weight from protein (ADR 0005).
+- mu = sum_i w_i v_bio,i / rho_DW; pigment-branch enzymes follow photoacclimation
+  (as `minimal`, ADR 0006 §8; `pigments="growth"`: the earlier growth coupling); dry
+  weight from protein (ADR 0005). Energy outlets added to pfennig2024: see `PH_PC`.
 """
 
 from __future__ import annotations
@@ -43,7 +44,7 @@ from synmep.data import LegacyInputs
 from synmep.exprfn import expr_fn
 from synmep.models import metabolism
 from synmep.models.double_growth import CELL_VOLUME, per_nl, scaled
-from synmep.models.minimal import dry_weight_density
+from synmep.models.minimal import PIGMENT_CLAMP, PIGMENT_G0, dry_weight_density
 from synmep.petc.pfennig import LIGHT_INPUTS, get_petc_model
 from synmep.surrogates.petc_legacy import Symbols, light_expressions
 
@@ -67,6 +68,38 @@ KM_NGAM = 0.1  # [mM] (assumption, well below the ~8.5 mM adenylate pool)
 # against FNR (~4 s period) that made batches take 5-7 min. x3 still oscillates.
 # Lowers growth at given supply; the fitted efficiency compensates (report 09).
 KM_BIO_NADPH_FACTOR = 10.0
+
+
+# Energy outlets added to pfennig2024 (ADR 0006 §8, report 12). Without them `full`
+# has no steady state at batch light: supply exceeds the growth demand, ATP saturates,
+# ATP synthase stalls and lumen protons accumulate without bound (report 11).
+# - photosynthetic control: cytochrome b6f slowed by lumen acidification,
+#   x 1 / (1 + (H_lumen / H_PC)^N_PC), H_PC at pH 5.0 (pfennig2024's own steady
+#   states: lumen pH 5.4-5.8, i.e. 14 % or less throttling); assumption
+# - ATP overflow: V_OVF x^4 / (K_OVF^4 + x^4), x = ATP / AP_tot; V_OVF = pfennig2024's
+#   linear ATP consumption at x = K_OVF, negligible at its normal x <= 0.22; assumption
+# - cytoplasmic pH homeostasis: Ho relaxes to HO_REF (pH 7.13, pfennig2024's steady
+#   states) at K_PH (exchange with the medium); pfennig2024's rates scale with Ho, and
+#   without it the dark layers alkalinise and stop re-oxidising NADH; assumption
+# total depth-mean absorption per Chl at the reference state (Fig 9 median density,
+# batch light, warm white, unfitted `full-k3` with outlets) for photoacclimation
+L_ABS_REF = 145.0
+PH_PC, N_PC = 5.0, 2.0
+K_OVF = 0.5
+HO_REF, K_PH = 0.016, 1.0  # [mM], [s^-1]
+
+
+def b6f_controlled(pc_ox, ho, k_q, pq_red, hi_mol, h_pc, n_pc):
+    return ho * pc_ox * pq_red * k_q / (1 + (hi_mol / h_pc) ** n_pc)
+
+
+def atp_overflow(atp, ap_tot, v_ovf, k_ovf):
+    x = atp / ap_tot
+    return v_ovf * x**4 / (k_ovf**4 + x**4)
+
+
+def ph_homeostasis(ho, ho_ref, k_ph):
+    return k_ph * (ho_ref - ho)
 
 
 def per_chl(total_cell: float, chl: float) -> float:
@@ -100,7 +133,9 @@ def _rename(names: list[str], table: dict[str, str]) -> list[str]:
     return [table.get(n, n) for n in names]
 
 
-def _copy_pfennig(m: Model, pf: Model, pre: str, inputs: dict[str, str]) -> None:
+def _copy_pfennig(
+    m: Model, pf: Model, pre: str, inputs: dict[str, str], *, outlets: bool = True
+) -> None:
     """Add a prefixed copy of pfennig2024's states, derived values, surrogates and
     reactions; parameters stay shared, the light inputs map to `inputs`."""
     local = set(pf.get_variable_names()) | set(pf.get_raw_derived())
@@ -132,8 +167,22 @@ def _copy_pfennig(m: Model, pf: Model, pre: str, inputs: dict[str, str]) -> None
             if isinstance(v, Derived):
                 v = Derived(fn=v.fn, args=_rename(v.args, table))
             stoich[table.get(k, k)] = v
+        fn, args = r.fn, _rename(r.args, table)
+        if name == "vb6f" and outlets:
+            fn, args = b6f_controlled, [*args, pre + "Hi_mol", "H_PC", "N_PC"]
+        m.add_reaction(pre + name, fn=fn, args=args, stoichiometry=stoich)
+    if outlets:
         m.add_reaction(
-            pre + name, fn=r.fn, args=_rename(r.args, table), stoichiometry=stoich
+            pre + "vATPoverflow",
+            fn=atp_overflow,
+            args=[pre + "ATP", table.get("AP_tot", "AP_tot"), "V_OVF", "K_OVF"],
+            stoichiometry={pre + "ATP": -1},
+        )
+        m.add_reaction(
+            pre + "vpHstat",
+            fn=ph_homeostasis,
+            args=[pre + "Ho", "Ho_ref", "k_pH"],
+            stoichiometry={pre + "Ho": 1},
         )
 
 
@@ -159,6 +208,8 @@ def get_model(
     biomass_atp: float = BIOMASS_ATP,
     km_bio_nadph_factor: float = KM_BIO_NADPH_FACTOR,
     chromatic: bool = False,
+    outlets: bool = True,
+    pigments: Literal["light", "growth"] = "light",
 ) -> Model:
     dynamic = growth_mode == "dynamic"
     pf = get_petc_model(clamp_pga=False)
@@ -189,6 +240,12 @@ def get_model(
     )
     skip = set(LIGHT_INPUTS) | (set(SOLUBLE_TOTALS) if soluble_per_cell else set())
     m.add_parameters({k: v for k, v in pf_pars.items() if k not in skip})
+    if outlets:
+        m.add_parameters({
+            "H_PC": 10**-PH_PC, "N_PC": N_PC, "K_OVF": K_OVF,
+            "V_OVF": pf_pars["kATPconsumption"] * K_OVF * pf_pars["AP_tot"],
+            "Ho_ref": HO_REF, "k_pH": K_PH,
+        })  # fmt: skip
     met_pars = met.get_parameter_values()
     # ATP demand is mechanistic here (biomass, MEP chain); the surrogate families'
     # maintenance sink balanced an assumed supply and would drain pfennig2024's
@@ -275,7 +332,7 @@ def get_model(
             "absorption_pbs": f"{pre}complex_abs_pbs",
             "light_OCP": f"{pre}light_ocp",
         }
-        _copy_pfennig(m, pf, pre, inputs)
+        _copy_pfennig(m, pf, pre, inputs, outlets=outlets)
         m.add_variables({pre + k: ref.pools[k] for k in PER_LAYER_METABOLITES})
         for mk, pk in PFENNIG_POOLS.items():
             m.add_derived(f"{pre}{mk}_mM", fn=to_mM, args=[pre + pk, "Chl"])
@@ -288,9 +345,28 @@ def get_model(
         sp.Add(*(float(w[i]) * sp.Symbol(f"z{i}_mu") for i in range(layers))), "mu"
     )
     m.add_derived("mu", fn=fn, args=args)
-    for name in ("E_CrtB_eff", "E_Chl_eff"):
-        d = met.get_raw_derived()[name]
-        m.add_derived(name, fn=d.fn, args=d.args)
+    if pigments == "light":  # photoacclimation (ADR 0006 §8), as `minimal`
+        m.update_parameter("pigment_coupling", PIGMENT_G0)
+        m.add_parameter("L_abs_ref", L_ABS_REF)
+        l_abs = sp.Add(
+            *(sp.Symbol(f"complex_abs_{c}_mean") for c in ("ps1", "ps2", "pbs"))
+        )
+        factor = sp.Min(
+            sp.Max((l_abs / sp.Symbol("L_abs_ref")) ** -sp.Symbol("pigment_coupling"),
+                   PIGMENT_CLAMP[0]),
+            PIGMENT_CLAMP[1],
+        )  # fmt: skip
+        fn, args = expr_fn(factor, origin="pigment_factor")
+        m.add_derived("pigment_factor", fn=fn, args=args)
+        for name in ("CrtB", "Chl"):
+            fn, args = expr_fn(
+                sp.Symbol(f"E_{name}") * sp.Symbol("pigment_factor"), f"E_{name}_eff"
+            )
+            m.add_derived(f"E_{name}_eff", fn=fn, args=args)
+    else:
+        for name in ("E_CrtB_eff", "E_Chl_eff"):
+            d = met.get_raw_derived()[name]
+            m.add_derived(name, fn=d.fn, args=d.args)
 
     conv = sp.Integer(1000) / (
         60 * sp.Symbol("Chl")
