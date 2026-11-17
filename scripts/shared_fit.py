@@ -9,8 +9,9 @@ Targets (one protocol for every variant):
 - WT phycocyanin : Chl mass ratio at the same times (sigma 20 %), which pins
   `pbs_scale` (the batch data only pin petc_scale x pbs_scale, report 08);
 - coloured light (Zavřel et al. 2024, `synmep.colour`, ADR 0006 §8): WT growth and Chl
-  per cell relative to the 633 nm LED under nine LEDs at 25 µmol m^-2 s^-1 (sigma 0.1
-  and 0.2; no growing state = growth 0). Skipped with --no-colour.
+  per cell relative to the 633 nm LED under the LEDs at 25 µmol m^-2 s^-1 except
+  `COLOUR_EXCLUDED` (sigma 0.1 and 0.2; no growing state = growth 0). Skipped with
+  --no-colour.
 
 Held out: the proteomics batch's cell densities (WT, from its 4 h sample to 96 h);
 Fig 10 is reported as a check. Fit factors are multiplicative on the variant's own
@@ -37,6 +38,9 @@ warnings.filterwarnings("ignore")
 OUT = Path("docs/reports/fits")
 SIGMA_MU, SIGMA_LN_N, SIGMA_CHL, SIGMA_PC = 0.005, 0.05, 0.10, 0.20
 SIGMA_COLOUR_GROWTH, SIGMA_COLOUR_CHL = 0.10, 0.20
+# LEDs left out of the colour target (report 14): in 465-520 nm light only carotenoids
+# absorb much, and how much of that reaches PS2 is out of the model's scope
+COLOUR_EXCLUDED = (465, 495, 520)
 TIMES = (4, 24, 48, 96)  # [h] proteomics samples
 
 # factor name -> (model parameters it scales, lower, upper factor)
@@ -104,8 +108,9 @@ class Problem:
         self.name = name
         self.use_colour = use_colour
         cd = colour.data()
-        self.colour_growth = cd["growth"].to_numpy()
-        self.colour_chl = cd["chl"].to_numpy()
+        self.colour_used = ~cd.index.isin(COLOUR_EXCLUDED)
+        self.colour_growth = cd["growth"].to_numpy()[self.colour_used]
+        self.colour_chl = cd["chl"].to_numpy()[self.colour_used]
         self.a = variants.adapter(name)
         self.spec = spec(name)
         m = self.a.build("dynamic", **evaluate.BATCH_LIGHT)
@@ -158,7 +163,8 @@ class Problem:
     def colour_residuals(self, z: np.ndarray) -> np.ndarray:
         try:
             c = colour.response(self.a, self.pars(z))
-            g, chl = c["growth"].to_numpy(), c["chl"].to_numpy()
+            g = c["growth"].to_numpy()[self.colour_used]
+            chl = c["chl"].to_numpy()[self.colour_used]
         except Exception:  # noqa: BLE001
             g = chl = np.full(len(self.colour_growth), np.nan)
         rg = (g - self.colour_growth) / SIGMA_COLOUR_GROWTH
@@ -243,8 +249,12 @@ def main() -> None:
         report["colour"] = {
             str(k): v for k, v in c[["growth", "chl"]].T.to_dict().items()
         }
+        g_all = c["growth"].to_numpy()
         report["colour_rmse_growth"] = float(
-            np.sqrt(np.mean((c["growth"].to_numpy() - prob.colour_growth) ** 2))
+            np.sqrt(np.mean((g_all[prob.colour_used] - prob.colour_growth) ** 2))
+        )
+        report["colour_rmse_growth_all"] = float(
+            np.sqrt(np.mean((g_all - colour.data()["growth"].to_numpy()) ** 2))
         )
         report["colour_n_no_growth"] = int((c["growth"] <= 0).sum())
         try:

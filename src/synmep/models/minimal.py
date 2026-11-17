@@ -94,14 +94,40 @@ PIGMENT_G0 = 0.5
 # so there is less room upwards than downwards. (Was 0.05-20, which let carotenoids
 # run away in dim blue-green light, report 12.)
 PIGMENT_CLAMP = (0.5, 1.5)
+# How pigments are made (report 14): "enzyme" = Michaelis-Menten in GGPP (and NADPH for
+# Chl) times the enzyme activity, bounded only by dilution (reports 12-13: in dim light
+# pigment synthesis loses NADPH to growth, carotenoids run away); "growth" = in
+# proportion to growth, E_eff x mu / mu_ref, nearly zero-order in GGPP and not limited by
+# NADPH (still consumed), so contents stay near their photoacclimated targets; "turnover"
+# = "enzyme" plus first-order degradation `PIGMENT_TURNOVER` of Chl and carotenoids and
+# a `CHL_NADPH_PRIORITY`-fold lower K_m(NADPH) of Chl synthesis. Each keeps the
+# reference fluxes.
+PigmentSynthesis = Literal["enzyme", "growth", "turnover"]
+# total Chl lifetime > 1 week (Vavilin & Vermaas 2007, Yao et al. 2012): upper bound
+PIGMENT_TURNOVER = 1 / (7 * 24 * 60)  # [min^-1]
+CHL_NADPH_PRIORITY = 10.0
+# Photoacclimation signal (report 14): "abs" total absorption PS1 + PS2 + PBS, "ps2" PS2
+# excitation a_PS2 + phi a_PBS (phi = `acclimation.PBS_TO_PS2`) [µmol mmol(Chl)^-1
+# s^-1], "flux" PETC electron flow J_3PGA [mmol mol(Chl)^-1 s^-1]; references are their
+# values at the reference state (minimal-m0 of report 13, steady at the Fig 9 median
+# density 4.2e8 mL^-1, batch light, warm white), so the factor is 1 there.
+PigmentSignal = Literal["abs", "ps2", "flux"]
+PIGMENT_SIGNAL_REF = {"abs": 83.84, "ps2": 21.87, "flux": 0.582}
 PHI_Q = 0.45  # [-] growth-independent proteome share (Scott2010, E. coli; assumption)
 
 
 def variant(name: str) -> dict:
-    """'minimal-m<0|2>[-cap[-abs|-flux]]' -> `get_model` keyword arguments."""
-    capacity = "-cap" in name
-    signal = name.split("-cap-")[1] if "-cap-" in name else "ps1"
-    return {"capacity": capacity, "petc": name.split("-")[1], "capacity_signal": signal}
+    """'minimal-m<0|2>[-cap[-abs|-flux]][~<synthesis>][~<pigment signal>]' ->
+    `get_model` keyword arguments (defaults "enzyme", "abs")."""
+    base, *opts = name.split("~")
+    capacity = "-cap" in base
+    signal = base.split("-cap-")[1] if "-cap-" in base else "ps1"
+    kw = {"capacity": capacity, "petc": base.split("-")[1], "capacity_signal": signal}
+    for o in opts:
+        kw[
+            "synthesis" if o in ("enzyme", "growth", "turnover") else "pigment_signal"
+        ] = o
+    return kw
 
 
 def dry_weight_density(cell_volume: float = CELL_VOLUME) -> float:
@@ -165,6 +191,10 @@ def fitted_parameters(capacity: bool) -> dict[str, float]:
 
 def flux_minus_dilution(v: float, x: float, mu: float, speed: float) -> float:
     return speed * (v - mu * x)
+
+
+def flux_minus_loss(v: float, x: float, mu: float, kd: float, speed: float) -> float:
+    return speed * (v - (mu + kd) * x)
 
 
 def relax(x: float, target: float, rate: float) -> float:
@@ -274,6 +304,8 @@ def get_model(
     chromatic: bool = False,
     capacity_signal: CapacitySignal = "ps1",
     pigments: Pigments = "light",
+    synthesis: PigmentSynthesis = "enzyme",
+    pigment_signal: PigmentSignal = "abs",
 ) -> Model:
     rho_dw = dry_weight_density()
     ref = metabolism.Reference(rho_dw=rho_dw)
@@ -321,7 +353,7 @@ def get_model(
 
     if pigments == "light":
         m.update_parameter("pigment_coupling", PIGMENT_G0)
-        m.add_parameter("L_abs_ref", CAPACITY_REF["abs"])
+        m.add_parameter("pigment_ref", PIGMENT_SIGNAL_REF[pigment_signal])
         m.remove_derived("E_CrtB_eff")
         m.remove_derived("E_Chl_eff")
     m.add_derived("N_nL", fn=per_nl, args=["N"])
@@ -374,19 +406,29 @@ def get_model(
         m.remove_parameter("V_bio")
         exprs["V_bio"] = sp.Symbol("V_bio_WT") * sp.Symbol("capacity_share")
     if pigments == "light":
-        l_abs = sp.Add(
-            *(sp.Symbol(f"complex_abs_{c}_mean") for c in ("ps1", "ps2", "pbs"))
+        a1, a2, apbs = (
+            sp.Symbol(f"complex_abs_{c}_mean") for c in ("ps1", "ps2", "pbs")
         )
+        exprs["pigment_signal"] = {
+            "abs": a1 + a2 + apbs,
+            "ps2": a2 + acclimation.PBS_TO_PS2 * apbs,
+            "flux": sp.Max(sp.Symbol("J_3PGA"), 1e-3),
+        }[pigment_signal]
+        rel = sp.Symbol("pigment_signal") / sp.Symbol("pigment_ref")
         exprs["pigment_factor"] = sp.Min(
-            sp.Max((l_abs / sp.Symbol("L_abs_ref")) ** -sp.Symbol("pigment_coupling"),
-                   PIGMENT_CLAMP[0]),
+            sp.Max(rel ** -sp.Symbol("pigment_coupling"), PIGMENT_CLAMP[0]),
             PIGMENT_CLAMP[1],
-        )  # fmt: skip
+        )
+        factor = sp.Symbol("pigment_factor")
+        if synthesis == "growth":
+            factor = factor * sp.Symbol("mu") / sp.Symbol("mu_ref")
         for e in ("CrtB", "Chl"):
-            exprs[f"E_{e}_eff"] = sp.Symbol(f"E_{e}") * sp.Symbol("pigment_factor")
+            exprs[f"E_{e}_eff"] = sp.Symbol(f"E_{e}") * factor
     for name, expr in exprs.items():
         fn, args = expr_fn(expr, origin=name)
         m.add_derived(name, fn=fn, args=args)
+    if pigments == "light":
+        _pigment_synthesis(m, synthesis, ref)
 
     if petc == "m2":
         for i in range(depth_nodes):
@@ -404,11 +446,16 @@ def get_model(
                 )
     if dynamic:
         m.add_reaction("growth", fn=growth, args=["N", "mu"], stoichiometry={"N": 1})
+    turnover = pigments == "light" and synthesis == "turnover"
     for state, flux in (("Chl", "v_chl"), ("Car", "v_car"), ("SQ", "v_sq")):
+        if turnover and state != "SQ":
+            fn, args = flux_minus_loss, [flux, state, "mu", "pigment_turnover"]
+        else:
+            fn, args = flux_minus_dilution, [flux, state, "mu"]
         m.add_reaction(
             f"net_{state}",
-            fn=flux_minus_dilution,
-            args=[flux, state, "mu", "slow_speedup"],
+            fn=fn,
+            args=[*args, "slow_speedup"],
             stoichiometry={state: 1},
         )
     if chromatic:
@@ -429,3 +476,34 @@ def get_model(
 
 def _rate(tau: float, speedup: float) -> float:
     return speedup / tau
+
+
+def _pigment_synthesis(m: Model, synthesis: PigmentSynthesis, ref) -> None:
+    """Rate laws of `synthesis` (see `PigmentSynthesis`), same fluxes at the reference."""
+    p = m.get_parameter_values()
+    nadph = ref.pools["NADPH"]
+    if synthesis == "growth":
+        # nearly zero-order in GGPP (K = GGPP_ref / 10): with the enzymes' own K_m, GGPP
+        # piling up in slow growth raised Chl per growth up to ~10-fold
+        ggpp, mm = ref.pools["GGPP"], metabolism.mm
+        k = ggpp / 10
+        j_chl = p["V_Chl"] * mm(ggpp, p["Km_Chl_GGPP"]) * mm(nadph, p["Km_Chl_NADPH"])
+        j_car = p["V_CrtB"] * mm(ggpp, p["Km_CrtB_GGPP"])
+        m.add_parameters({"Km_pigment_growth": k,
+                          "V_Chl_growth": j_chl / mm(ggpp, k),
+                          "V_CrtB_growth": j_car / mm(ggpp, k)})  # fmt: skip
+        for v, e in (("v_chl", "Chl"), ("v_car", "CrtB")):
+            m.update_reaction(
+                v,
+                fn=metabolism.v_mm1,
+                args=["GGPP", f"E_{e}_eff", f"V_{e}_growth", "Km_pigment_growth"],
+            )
+    elif synthesis == "turnover":
+        boost = (ref.mu + PIGMENT_TURNOVER) / ref.mu  # synthesis = (mu + kd) X at ref
+        km = p["Km_Chl_NADPH"] / CHL_NADPH_PRIORITY
+        sat = metabolism.mm(nadph, p["Km_Chl_NADPH"]) / metabolism.mm(nadph, km)
+        m.update_parameters(
+            {"V_CrtB": p["V_CrtB"] * boost, "V_Chl": p["V_Chl"] * boost * sat,
+             "Km_Chl_NADPH": km}
+        )  # fmt: skip
+        m.add_parameter("pigment_turnover", PIGMENT_TURNOVER)
