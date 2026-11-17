@@ -101,7 +101,7 @@ PIGMENT_CLAMP = (0.5, 1.5)
 # NADPH (still consumed), so contents stay near their photoacclimated targets; "turnover"
 # = "enzyme" plus first-order degradation `PIGMENT_TURNOVER` of Chl and carotenoids and
 # a `CHL_NADPH_PRIORITY`-fold lower K_m(NADPH) of Chl synthesis. Each keeps the
-# reference fluxes.
+# reference fluxes. Default "growth" (best shared fit, report 14).
 PigmentSynthesis = Literal["enzyme", "growth", "turnover"]
 # total Chl lifetime > 1 week (Vavilin & Vermaas 2007, Yao et al. 2012): upper bound
 PIGMENT_TURNOVER = 1 / (7 * 24 * 60)  # [min^-1]
@@ -110,7 +110,8 @@ CHL_NADPH_PRIORITY = 10.0
 # excitation a_PS2 + phi a_PBS (phi = `acclimation.PBS_TO_PS2`) [µmol mmol(Chl)^-1
 # s^-1], "flux" PETC electron flow J_3PGA [mmol mol(Chl)^-1 s^-1]; references are their
 # values at the reference state (minimal-m0 of report 13, steady at the Fig 9 median
-# density 4.2e8 mL^-1, batch light, warm white), so the factor is 1 there.
+# density 4.2e8 mL^-1, batch light, warm white), so the factor is 1 there. Default
+# "ps2" (report 14).
 PigmentSignal = Literal["abs", "ps2", "flux"]
 PIGMENT_SIGNAL_REF = {"abs": 83.84, "ps2": 21.87, "flux": 0.582}
 PHI_Q = 0.45  # [-] growth-independent proteome share (Scott2010, E. coli; assumption)
@@ -118,7 +119,7 @@ PHI_Q = 0.45  # [-] growth-independent proteome share (Scott2010, E. coli; assum
 
 def variant(name: str) -> dict:
     """'minimal-m<0|2>[-cap[-abs|-flux]][~<synthesis>][~<pigment signal>]' ->
-    `get_model` keyword arguments (defaults "enzyme", "abs")."""
+    `get_model` keyword arguments (defaults "growth", "ps2", report 14)."""
     base, *opts = name.split("~")
     capacity = "-cap" in base
     signal = base.split("-cap-")[1] if "-cap-" in base else "ps1"
@@ -304,8 +305,8 @@ def get_model(
     chromatic: bool = False,
     capacity_signal: CapacitySignal = "ps1",
     pigments: Pigments = "light",
-    synthesis: PigmentSynthesis = "enzyme",
-    pigment_signal: PigmentSignal = "abs",
+    synthesis: PigmentSynthesis = "growth",
+    pigment_signal: PigmentSignal = "ps2",
 ) -> Model:
     rho_dw = dry_weight_density()
     ref = metabolism.Reference(rho_dw=rho_dw)
@@ -428,7 +429,7 @@ def get_model(
         fn, args = expr_fn(expr, origin=name)
         m.add_derived(name, fn=fn, args=args)
     if pigments == "light":
-        _pigment_synthesis(m, synthesis, ref)
+        pigment_synthesis(m, synthesis, ref)
 
     if petc == "m2":
         for i in range(depth_nodes):
@@ -478,7 +479,7 @@ def _rate(tau: float, speedup: float) -> float:
     return speedup / tau
 
 
-def _pigment_synthesis(m: Model, synthesis: PigmentSynthesis, ref) -> None:
+def pigment_synthesis(m: Model, synthesis: PigmentSynthesis, ref) -> None:
     """Rate laws of `synthesis` (see `PigmentSynthesis`), same fluxes at the reference."""
     p = m.get_parameter_values()
     nadph = ref.pools["NADPH"]

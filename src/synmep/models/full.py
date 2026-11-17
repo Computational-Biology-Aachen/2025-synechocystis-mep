@@ -44,7 +44,13 @@ from synmep.data import LegacyInputs
 from synmep.exprfn import expr_fn
 from synmep.models import metabolism
 from synmep.models.double_growth import CELL_VOLUME, per_nl, scaled
-from synmep.models.minimal import PIGMENT_CLAMP, PIGMENT_G0, dry_weight_density
+from synmep.models.minimal import (
+    PIGMENT_CLAMP,
+    PIGMENT_G0,
+    PigmentSynthesis,
+    dry_weight_density,
+    pigment_synthesis,
+)
 from synmep.petc.pfennig import LIGHT_INPUTS, get_petc_model
 from synmep.surrogates.petc_legacy import Symbols, light_expressions
 
@@ -84,6 +90,9 @@ KM_BIO_NADPH_FACTOR = 10.0
 # total depth-mean absorption per Chl at the reference state (Fig 9 median density,
 # batch light, warm white, unfitted `full-k3` with outlets) for photoacclimation
 L_ABS_REF = 145.0
+# photoacclimation signals at the reference state of the fitted `full-k3` (report 13
+# fit, Fig 9 median density, batch light, warm white), as `minimal.PIGMENT_SIGNAL_REF`
+PIGMENT_SIGNAL_REF = {"abs": 194.3, "ps2": 87.88}
 PH_PC, N_PC = 5.0, 2.0
 K_OVF = 0.5
 HO_REF, K_PH = 0.016, 1.0  # [mM], [s^-1]
@@ -210,6 +219,8 @@ def get_model(
     chromatic: bool = False,
     outlets: bool = True,
     pigments: Literal["light", "growth"] = "light",
+    synthesis: PigmentSynthesis = "growth",
+    pigment_signal: Literal["abs", "ps2"] = "ps2",
 ) -> Model:
     dynamic = growth_mode == "dynamic"
     pf = get_petc_model(clamp_pga=False)
@@ -228,6 +239,11 @@ def get_model(
         pigment_coupling=pigment_coupling,
         biomass=metabolism.BIOMASS | {"ATP": biomass_atp},
     )
+    if pigments == "light":  # pigment rate laws as `minimal` (report 14)
+        if synthesis == "turnover":  # needs degradation of the shared pools
+            msg = "full: pigment synthesis 'turnover' is not implemented"
+            raise NotImplementedError(msg)
+        pigment_synthesis(met, synthesis, ref)
     nodes, weights = np.polynomial.legendre.leggauss(layers)
     w = weights / 2
 
@@ -347,21 +363,28 @@ def get_model(
     m.add_derived("mu", fn=fn, args=args)
     if pigments == "light":  # photoacclimation (ADR 0006 §8), as `minimal`
         m.update_parameter("pigment_coupling", PIGMENT_G0)
-        m.add_parameter("L_abs_ref", L_ABS_REF)
-        l_abs = sp.Add(
-            *(sp.Symbol(f"complex_abs_{c}_mean") for c in ("ps1", "ps2", "pbs"))
+        m.add_parameter("pigment_ref", PIGMENT_SIGNAL_REF[pigment_signal])
+        a1, a2, apbs = (
+            sp.Symbol(f"complex_abs_{c}_mean") for c in ("ps1", "ps2", "pbs")
         )
+        signal = {
+            "abs": a1 + a2 + apbs,
+            "ps2": a2 + acclimation.PBS_TO_PS2 * apbs,
+        }[pigment_signal]
+        fn, args = expr_fn(signal, origin="pigment_signal")
+        m.add_derived("pigment_signal", fn=fn, args=args)
+        rel = sp.Symbol("pigment_signal") / sp.Symbol("pigment_ref")
         factor = sp.Min(
-            sp.Max((l_abs / sp.Symbol("L_abs_ref")) ** -sp.Symbol("pigment_coupling"),
-                   PIGMENT_CLAMP[0]),
+            sp.Max(rel ** -sp.Symbol("pigment_coupling"), PIGMENT_CLAMP[0]),
             PIGMENT_CLAMP[1],
-        )  # fmt: skip
+        )
         fn, args = expr_fn(factor, origin="pigment_factor")
         m.add_derived("pigment_factor", fn=fn, args=args)
+        scale = sp.Symbol("pigment_factor")
+        if synthesis == "growth":
+            scale = scale * sp.Symbol("mu") / sp.Symbol("mu_ref")
         for name in ("CrtB", "Chl"):
-            fn, args = expr_fn(
-                sp.Symbol(f"E_{name}") * sp.Symbol("pigment_factor"), f"E_{name}_eff"
-            )
+            fn, args = expr_fn(sp.Symbol(f"E_{name}") * scale, f"E_{name}_eff")
             m.add_derived(f"E_{name}_eff", fn=fn, args=args)
     else:
         for name in ("E_CrtB_eff", "E_Chl_eff"):
