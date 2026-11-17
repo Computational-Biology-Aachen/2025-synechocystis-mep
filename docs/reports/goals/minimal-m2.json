@@ -1,0 +1,393 @@
+{
+ "variant": "minimal-m2",
+ "mca": {
+  "folds": {
+   "E_DXS": 20.705182409747025,
+   "E_MEP": 31.46908112771333,
+   "E_CrtE": 10.199182726765736,
+   "E_Sqs": 6.836554506985257,
+   "E_CrtB": 98.01106543726917,
+   "E_Chl": 5.64686624770206
+  },
+  "sequence": [
+   "E_Sqs",
+   "E_CrtE",
+   "E_MEP"
+  ],
+  "rounds": [
+   {
+    "round": 0,
+    "overexpressed": [],
+    "sq_mM": 9.10360498330689,
+    "mu_per_h": 0.03967470502517465,
+    "score": {
+     "E_DXS": 0.012946604451020954,
+     "E_MEP": 0.0005147344923856025,
+     "E_CrtE": 0.2844985439742117,
+     "E_Sqs": 0.8255576849794348,
+     "E_CrtB": -0.012065880300279093,
+     "E_Chl": 0.24512346912507244
+    },
+    "response_sq": {
+     "E_DXS": 0.013465409646315644,
+     "E_MEP": 0.002348316068203173,
+     "E_CrtE": 0.28602570679477946,
+     "E_Sqs": 0.8345642653550207,
+     "E_CrtB": -0.010810830740577003,
+     "E_Chl": -0.47918920807586596
+    }
+   },
+   {
+    "round": 1,
+    "overexpressed": [
+     "E_Sqs"
+    ],
+    "sq_mM": 19.401531092784804,
+    "mu_per_h": 0.034030603407698604,
+    "score": {
+     "E_DXS": 0.052185842348988584,
+     "E_MEP": 0.005074484612987644,
+     "E_CrtE": 1.2516140266863014,
+     "E_CrtB": -0.04920342777728478,
+     "E_Chl": 0.012433998843910499
+    },
+    "response_sq": {
+     "E_DXS": 0.016979318545618512,
+     "E_MEP": 0.0028826200890697574,
+     "E_CrtE": 0.40228969533536785,
+     "E_CrtB": 0.02350795561467215,
+     "E_Chl": -0.148587359259464
+    }
+   },
+   {
+    "round": 2,
+    "overexpressed": [
+     "E_Sqs",
+     "E_CrtE"
+    ],
+    "sq_mM": 30.569356969400182,
+    "mu_per_h": 0.03866014199288481,
+    "score": {
+     "E_DXS": 0.38043611042844794,
+     "E_MEP": 0.8683763800848491,
+     "E_CrtB": -0.03325577369508019,
+     "E_Chl": 0.1761947979954337
+    },
+    "response_sq": {
+     "E_DXS": 0.3499739968840702,
+     "E_MEP": 0.8004474422156618,
+     "E_CrtB": -0.025878872953373617,
+     "E_Chl": -0.5042937618414428
+    }
+   },
+   {
+    "round": 3,
+    "overexpressed": [
+     "E_Sqs",
+     "E_CrtE",
+     "E_MEP"
+    ],
+    "sq_mM": 56.361146426703684,
+    "mu_per_h": 0.03761158340360031,
+    "score": {
+     "E_DXS": 0.6180616710195747,
+     "E_CrtB": -0.00873415915804337,
+     "E_Chl": 0.2887374830272075
+    },
+    "response_sq": {
+     "E_DXS": 0.6797967770143202,
+     "E_CrtB": -0.008230872502100974,
+     "E_Chl": -0.48056094424699514
+    },
+    "rejected": [
+     "E_DXS"
+    ],
+    "stop": "every eligible step lowered the squalene content"
+   }
+  ]
+ },
+ "strains": [
+  {
+   "strain": [],
+   "batch": {
+    "best_harvest_h": 65.0,
+    "best_productivity_mg_L_h": 0.03964291070070935,
+    "titer_end_mg_L": 3.373713735355347
+   },
+   "turbidostat_best": {
+    "density": 720843424.2404265,
+    "productivity_mg_L_h": 0.10625080119866857,
+    "mu_per_h": 0.03230033228713097
+   }
+  },
+  {
+   "strain": [
+    "E_Sqs"
+   ],
+   "batch": {
+    "best_harvest_h": 96.0,
+    "best_productivity_mg_L_h": 0.2378206787854454,
+    "titer_end_mg_L": 22.83078516340276
+   },
+   "turbidostat_best": {
+    "density": 720843424.2404265,
+    "productivity_mg_L_h": 0.6703604724168045,
+    "mu_per_h": 0.027482770920615598
+   }
+  },
+  {
+   "strain": [
+    "E_Sqs",
+    "E_CrtE"
+   ],
+   "batch": {
+    "best_harvest_h": 66.5,
+    "best_productivity_mg_L_h": 0.16346656422673503,
+    "titer_end_mg_L": 14.977020747535864
+   },
+   "turbidostat_best": {
+    "density": 720843424.2404265,
+    "productivity_mg_L_h": 0.3854731338474579,
+    "mu_per_h": 0.027627298588259113
+   }
+  },
+  {
+   "strain": [
+    "E_Sqs",
+    "E_CrtE",
+    "E_MEP"
+   ],
+   "batch": null,
+   "turbidostat_best": {
+    "density": 41617914.502878174,
+    "productivity_mg_L_h": 0.14359131355243895,
+    "mu_per_h": 0.03707008555953103
+   }
+  }
+ ],
+ "best_strain": [
+  "E_Sqs"
+ ],
+ "spectra": {
+  "warm_white_led:1": {
+   "best_harvest_h": 96.0,
+   "best_productivity_mg_L_h": 0.23785407847324125,
+   "titer_end_mg_L": 22.83399153343116
+  },
+  "cool_white_led:1": {
+   "best_harvest_h": 68.5,
+   "best_productivity_mg_L_h": 0.05705955229053505,
+   "titer_end_mg_L": 5.324989797566437
+  },
+  "fluorescent_lamp:1": {
+   "best_harvest_h": 96.0,
+   "best_productivity_mg_L_h": 0.22555389634094167,
+   "titer_end_mg_L": 21.6531740487304
+  },
+  "halogen_lamp:1": {
+   "best_harvest_h": 94.5,
+   "best_productivity_mg_L_h": 0.2169856677952435,
+   "titer_end_mg_L": 20.818252864348377
+  },
+  "incandescent_bulb:1": {
+   "best_harvest_h": 86.0,
+   "best_productivity_mg_L_h": 0.20386083430260676,
+   "titer_end_mg_L": 19.234440426660722
+  },
+  "solar:1": {
+   "best_harvest_h": 64.0,
+   "best_productivity_mg_L_h": 0.10750156423563252,
+   "titer_end_mg_L": 9.441278973985614
+  },
+  "led_red:1": {
+   "best_harvest_h": 44.5,
+   "best_productivity_mg_L_h": 0.16938234437699454,
+   "titer_end_mg_L": 10.806242945595766
+  },
+  "led_orange:0.25+led_red:0.75": {
+   "best_harvest_h": 68.5,
+   "best_productivity_mg_L_h": 0.20488607384217614,
+   "titer_end_mg_L": 17.561059669496185
+  },
+  "led_orange:0.5+led_red:0.5": {
+   "best_harvest_h": 89.0,
+   "best_productivity_mg_L_h": 0.26596784500740706,
+   "titer_end_mg_L": 25.233879354002585
+  },
+  "led_orange:0.75+led_red:0.25": {
+   "best_harvest_h": 96.0,
+   "best_productivity_mg_L_h": 0.3432776993306081,
+   "titer_end_mg_L": 32.954659135738375
+  },
+  "led_orange:1": {
+   "best_harvest_h": 96.0,
+   "best_productivity_mg_L_h": 0.4260088535506393,
+   "titer_end_mg_L": 40.89684994086137
+  },
+  "led_blue:0.25+led_red:0.75": {
+   "best_harvest_h": 41.5,
+   "best_productivity_mg_L_h": 0.14004672165682247,
+   "titer_end_mg_L": 8.607855505496145
+  },
+  "led_blue:0.25+led_orange:0.25+led_red:0.5": {
+   "best_harvest_h": 57.0,
+   "best_productivity_mg_L_h": 0.18254729635864783,
+   "titer_end_mg_L": 14.44989926074815
+  },
+  "led_blue:0.25+led_orange:0.5+led_red:0.25": {
+   "best_harvest_h": 87.5,
+   "best_productivity_mg_L_h": 0.24946610583730647,
+   "titer_end_mg_L": 23.551271030585855
+  },
+  "led_blue:0.25+led_orange:0.75": {
+   "best_harvest_h": 96.0,
+   "best_productivity_mg_L_h": 0.3253378415519587,
+   "titer_end_mg_L": 31.232432788988035
+  },
+  "led_blue:0.5+led_red:0.5": {
+   "best_harvest_h": 35.0,
+   "best_productivity_mg_L_h": 0.09617246100760429,
+   "titer_end_mg_L": 5.736661126964211
+  },
+  "led_blue:0.5+led_orange:0.25+led_red:0.25": {
+   "best_harvest_h": 52.5,
+   "best_productivity_mg_L_h": 0.14245561435345935,
+   "titer_end_mg_L": 11.081439869620818
+  },
+  "led_blue:0.5+led_orange:0.5": {
+   "best_harvest_h": 85.5,
+   "best_productivity_mg_L_h": 0.2317684971059508,
+   "titer_end_mg_L": 21.71240041707198
+  },
+  "led_blue:0.75+led_red:0.25": null,
+  "led_blue:0.75+led_orange:0.25": {
+   "best_harvest_h": 58.0,
+   "best_productivity_mg_L_h": 0.08920607836489648,
+   "titer_end_mg_L": 7.536736254905422
+  },
+  "led_blue:1": null
+ },
+ "chromatic_reference": 0.3260546922880141,
+ "spectra_chromatic": {
+  "warm_white_led:1": {
+   "best_harvest_h": 96.0,
+   "best_productivity_mg_L_h": 0.22225129713056047,
+   "titer_end_mg_L": 21.336124524533805
+  },
+  "cool_white_led:1": {
+   "best_harvest_h": 70.0,
+   "best_productivity_mg_L_h": 0.12860178454842403,
+   "titer_end_mg_L": 11.645636701136441
+  },
+  "fluorescent_lamp:1": {
+   "best_harvest_h": 96.0,
+   "best_productivity_mg_L_h": 0.20845507050124332,
+   "titer_end_mg_L": 20.011686768119358
+  },
+  "halogen_lamp:1": {
+   "best_harvest_h": 93.5,
+   "best_productivity_mg_L_h": 0.21515747698164964,
+   "titer_end_mg_L": 20.627908580055706
+  },
+  "incandescent_bulb:1": {
+   "best_harvest_h": 95.0,
+   "best_productivity_mg_L_h": 0.24745981650444643,
+   "titer_end_mg_L": 23.749832592418166
+  },
+  "solar:1": {
+   "best_harvest_h": 86.0,
+   "best_productivity_mg_L_h": 0.20905544067483292,
+   "titer_end_mg_L": 19.70909185401702
+  },
+  "led_red:1": {
+   "best_harvest_h": 79.0,
+   "best_productivity_mg_L_h": 0.27443214870832805,
+   "titer_end_mg_L": 25.099108197262215
+  },
+  "led_orange:0.25+led_red:0.75": {
+   "best_harvest_h": 87.0,
+   "best_productivity_mg_L_h": 0.3202165940613963,
+   "titer_end_mg_L": 30.27408685876093
+  },
+  "led_orange:0.5+led_red:0.5": {
+   "best_harvest_h": 92.0,
+   "best_productivity_mg_L_h": 0.32334903702676326,
+   "titer_end_mg_L": 30.92295802575471
+  },
+  "led_orange:0.75+led_red:0.25": {
+   "best_harvest_h": 95.5,
+   "best_productivity_mg_L_h": 0.31583610986484884,
+   "titer_end_mg_L": 30.31845211917376
+  },
+  "led_orange:1": {
+   "best_harvest_h": 96.0,
+   "best_productivity_mg_L_h": 0.4068684945486893,
+   "titer_end_mg_L": 39.05937547667417
+  },
+  "led_blue:0.25+led_red:0.75": {
+   "best_harvest_h": 75.0,
+   "best_productivity_mg_L_h": 0.2542072593467824,
+   "titer_end_mg_L": 22.569840107626867
+  },
+  "led_blue:0.25+led_orange:0.25+led_red:0.5": {
+   "best_harvest_h": 84.5,
+   "best_productivity_mg_L_h": 0.2949025919410864,
+   "titer_end_mg_L": 27.54265600368625
+  },
+  "led_blue:0.25+led_orange:0.5+led_red:0.25": {
+   "best_harvest_h": 90.5,
+   "best_productivity_mg_L_h": 0.3023792351419692,
+   "titer_end_mg_L": 28.825052572568445
+  },
+  "led_blue:0.25+led_orange:0.75": {
+   "best_harvest_h": 96.0,
+   "best_productivity_mg_L_h": 0.3019526596186035,
+   "titer_end_mg_L": 28.987455323385937
+  },
+  "led_blue:0.5+led_red:0.5": {
+   "best_harvest_h": 70.5,
+   "best_productivity_mg_L_h": 0.231244343837389,
+   "titer_end_mg_L": 19.648739035052223
+  },
+  "led_blue:0.5+led_orange:0.25+led_red:0.25": {
+   "best_harvest_h": 81.5,
+   "best_productivity_mg_L_h": 0.2689763341873458,
+   "titer_end_mg_L": 24.674108356904874
+  },
+  "led_blue:0.5+led_orange:0.5": {
+   "best_harvest_h": 89.0,
+   "best_productivity_mg_L_h": 0.27797707235670255,
+   "titer_end_mg_L": 26.36884339944845
+  },
+  "led_blue:0.75+led_red:0.25": {
+   "best_harvest_h": 50.0,
+   "best_productivity_mg_L_h": 0.13098340818359983,
+   "titer_end_mg_L": 9.910765381081605
+  },
+  "led_blue:0.75+led_orange:0.25": {
+   "best_harvest_h": 77.5,
+   "best_productivity_mg_L_h": 0.23713199041467392,
+   "titer_end_mg_L": 21.105188533622005
+  },
+  "led_blue:1": null
+ },
+ "convergence": {
+  "mca": {
+   "ok": 1,
+   "n": 1
+  },
+  "batch": {
+   "ok": 3,
+   "n": 4
+  },
+  "turbidostat": {
+   "ok": 27,
+   "n": 36
+  },
+  "spectra": {
+   "ok": 39,
+   "n": 42
+  }
+ },
+ "wall_s": 518.6262829949992
+}
