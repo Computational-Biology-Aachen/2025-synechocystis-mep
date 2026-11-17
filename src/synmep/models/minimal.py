@@ -191,6 +191,7 @@ def petc_expressions(
         ps_ratio="ps_ratio", beta_carotene_fraction="beta_carotene_fraction",
         sample_depth="sample_depth_m", cell_volume="cell_volume",
     )  # fmt: skip
+    r = sp.Symbol("petc_r")  # model parameter (default `pc["r"]`), fitted
     nodes, weights = np.polynomial.legendre.leggauss(depth_nodes)
     ch = None if light_channels is None else light_sources.channels(light_channels)
     exprs: dict[str, sp.Expr] = {}
@@ -215,7 +216,7 @@ def petc_expressions(
         if petc == "m0":
             exprs[f"{pre}I_abs"] = a1 + pc["w_ps2"] * a2 + pc["w_pbs"] * apbs
             exprs[f"{pre}J_3PGA"] = (
-                pc["J_max"] * _tanh(sp.Symbol(f"{pre}I_abs") / pc["I_k"]) - pc["r"]
+                pc["J_max"] * _tanh(sp.Symbol(f"{pre}I_abs") / pc["I_k"]) - r
             )
             excess = sp.Integer(0)
         else:
@@ -229,7 +230,7 @@ def petc_expressions(
             exprs[f"{pre}v_ps1"] = e1 * s_ * (1 - f)
             exprs[f"{pre}v_cbb"] = pc["V"] * f / (pc["K"] + f)
             vc = sp.Symbol(f"{pre}v_cbb")
-            exprs[f"{pre}J_3PGA"] = vc - pc["r"]
+            exprs[f"{pre}J_3PGA"] = vc - r
             excess = (e1 * s_ - vc) / pc["V"]
         exprs[f"{pre}J_ATP"] = (
             pc["c0"] + pc["c1"] * j3 + pc["c2"] * j3**2 + pc.get("c3", 0.0) * excess
@@ -289,6 +290,9 @@ def get_model(
             "ps_ratio": 5.9,
             "beta_carotene_fraction": 0.26,
             "petc_scale": 1.0,  # [-] fitted: efficiency of the PETC supply
+            # [mmol mol(Chl)^-1 s^-1] respiration term of the PETC closed form; sets
+            # the light compensation point (report 12), default from the PETC fit
+            "petc_r": petc_parameters(petc)["r"],
             "S_PGA_floor": 1e-3,  # [mM min^-1] net respiration at very low light
             "slow_speedup": 1.0 if dynamic else 100.0,  # [-] steady mode only
             "protein_content": PROTEIN_CONTENT,  # [g protein gDW^-1]

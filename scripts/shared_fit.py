@@ -59,7 +59,10 @@ SPECS = {
     "minimal": {
         "petc_scale": (("petc_scale",), 0.1, 10.0),
         "pbs_scale": PBS,
-        "pigment_coupling": (("pigment_coupling",), 0.02, 3.0),
+        # g = 0.5 x factor: up to 4 (was 1.5, where the fits ended, report 12)
+        "pigment_coupling": (("pigment_coupling",), 0.02, 8.0),
+        # PETC respiration, sets the light compensation point (report 12)
+        "petc_r": (("petc_r",), 0.02, 2.0),
     },
     "full": {
         "pbs_scale": PBS,
