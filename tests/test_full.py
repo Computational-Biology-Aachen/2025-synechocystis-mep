@@ -15,5 +15,5 @@ def test_structure():
 
 def test_dilute_culture_grows():
     tu = evaluate.turbidostat(variants.adapter("full-k3"), densities=[1e7])
-    # unfitted (shared fit pending): grows, below the data (0.04-0.06 h^-1)
-    assert 0.005 < tu["mu_per_h"].iloc[0] < 0.06
+    # fitted: grows, near the Fig 9 batch start (0.06 h^-1 at 80 µE; here 100 µE)
+    assert 0.005 < tu["mu_per_h"].iloc[0] < 0.08

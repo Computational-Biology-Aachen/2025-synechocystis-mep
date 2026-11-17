@@ -208,7 +208,7 @@ the goal answers over all passing variants is reported as structural uncertainty
 
 - **Pigment regulation becomes photoacclimation** in `minimal` and `full`: pigment-branch
   enzyme activity rises as total absorbed light per Chl falls,
-  E_eff = E · clamp((L_abs / L_abs,ref)^(−g), 0.05, 20), g fitted (in place of the
+  E_eff = E · clamp((L_abs / L_abs,ref)^(−g), 0.05, 20) (report 13: clamp narrowed to 0.5–1.5), g fitted (in place of the
   growth coupling (μ/μ_ref)^c, whose fitted c = 6.6–13 killed cells in dim light).
 - **The Zavřel et al. 2024 colour data are a fit target** of the shared fit: WT growth
   and Chl per cell relative to the 633 nm LED under nine LEDs at 25 µmol m⁻² s⁻¹.

@@ -86,7 +86,14 @@ Pigments = Literal["light", "growth"]
 # `pigment_coupling` (fitted, start `PIGMENT_G0`); "growth" = the earlier coupling
 # (mu / mu_ref)^c (report 10; its fitted c of 6.6-13 kills cells in dim light, report 11).
 PIGMENT_G0 = 0.5
-PIGMENT_CLAMP = (0.05, 20.0)
+# Range of the pigment factor (report 13): Synechocystis changes its pigment content
+# about 3-fold between limiting and saturating light: Chl per OD 2.4x (10-300 µE,
+# Kopečná 2012), Chl 2.8x, phycocyanin 3.3x, carotenoids 1.7x per gDW (27.5-1100 µE,
+# Zavřel 2019); Chl per cell 0.9-1.8x across nine LEDs (Zavřel 2024). Chl per OD barely
+# rises below 40 µE (Kopečná 2012), and the reference (Fig 9 median) is light-limited,
+# so there is less room upwards than downwards. (Was 0.05-20, which let carotenoids
+# run away in dim blue-green light, report 12.)
+PIGMENT_CLAMP = (0.5, 1.5)
 PHI_Q = 0.45  # [-] growth-independent proteome share (Scott2010, E. coli; assumption)
 
 
