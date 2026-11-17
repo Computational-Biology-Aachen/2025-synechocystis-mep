@@ -4,7 +4,7 @@
 
 Reads docs/reports/fits/<variant>.json and goals/<variant>.json, runs the Sqs scan and
 the steady states for the trade-off panels, writes
-docs/reports/figures/exec-{fit,story,goals}.png and exec-<variant>.json (numbers).
+docs/reports/figures/exec-{fit,story,goals}.png (goals: goal 1 only) and exec-<variant>.json (numbers).
 """
 
 from __future__ import annotations
@@ -151,25 +151,15 @@ def story_figure(a, goals: dict) -> dict:
 
 
 def goals_figure(goals: dict) -> None:
-    fig, ax = plt.subplots(1, 2, figsize=(13, 3.8), layout="constrained",
-                           width_ratios=(1, 2))  # fmt: skip
+    """Goal 1 only; the best-light goal (goal 2) is follow-up work."""
+    fig, ax = plt.subplots(figsize=(5.5, 3.8), layout="constrained")
     st = goals["strains"]
     vals = [s["batch"]["best_productivity_mg_L_h"] if s["batch"] else 0 for s in st]
-    ax[0].bar(range(len(st)), vals, color="C0")
-    ax[0].set_xticks(range(len(st)), [label(s["strain"]) for s in st], rotation=25,
-                     fontsize=7)  # fmt: skip
-    ax[0].set(ylabel="batch productivity [mg L$^{-1}$ h$^{-1}$]",
-              title="a  goal 1: MCA strain sequence (warm white, 96 h)")
-    sp = goals["spectra"]
-    items = sorted(sp.items(), key=lambda kv: -(kv[1] or {}).get(
-        "best_productivity_mg_L_h", -1))  # fmt: skip
-    lab = [k.replace("led_", "").replace(":1", "").replace("+", " + ") for k, _ in items]
-    v = [(x or {}).get("best_productivity_mg_L_h", 0) or 0 for _, x in items]
-    ax[1].bar(range(len(items)), v, color=["C1" if "led" in k else "0.5"
-                                           for k, _ in items])  # fmt: skip
-    ax[1].set_xticks(range(len(items)), lab, rotation=60, ha="right", fontsize=6)
-    ax[1].set(ylabel="batch productivity [mg L$^{-1}$ h$^{-1}$]",
-              title=f"b  goal 2: light source, best strain ({label(goals['best_strain'])})")
+    ax.bar(range(len(st)), vals, color="C0")
+    ax.set_xticks(range(len(st)), [label(s["strain"]) for s in st], rotation=25,
+                  fontsize=7)  # fmt: skip
+    ax.set(ylabel="batch productivity [mg L$^{-1}$ h$^{-1}$]",
+           title="MCA strain sequence (warm white, 96 h)")
     fig.savefig(FIG / "exec-goals.png", dpi=150)
 
 

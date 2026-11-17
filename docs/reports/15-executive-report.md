@@ -8,8 +8,8 @@
 - **Best fit:** AIC 69 (`minimal-m0-cap` 73), RMSE μ 0.0050 h⁻¹, Chl −12 to +14 %,
   PC:Chl −10 to +32 %.
 - **Gates:** passes 2 and 3; all 93 goal runs converge.
-- **Why m2:** explicit PS1/PS2 balance, needed for the LED goal. `minimal-m0-cap`
-  gives the same answers (cheaper fallback).
+- **Why m2:** explicit PS1/PS2 balance (needed for the light follow-up).
+  `minimal-m0-cap` gives the same answers (cheaper fallback).
 - **Caveats:**
   - `petc_r` and `capacity_K` end at their lower bounds.
   - 555 nm gives no growth; 465–520 nm are not fitted.
@@ -35,7 +35,7 @@
 ## Does it support the paper's story?
 
 ![story](figures/exec-story.png)
-![goals](figures/exec-goals.png)
+![strains](figures/exec-goals.png)
 
 | claim | verdict |
 | --- | --- |
@@ -44,7 +44,6 @@
 | Pigment loss limits productivity | only in dilute culture. In the batch, Sqs 60× cuts Chl at 48 h by 93 % while mean μ changes ≤ 8 %: less self-shading compensates. Productivity peaks at Sqs 20–35× (none up to 60× with CrtE) |
 | MCA finds the targets | ✓ Sqs → CrtE → MEP (DXS: no gain). Best strain: 0.65 mg L⁻¹ h⁻¹ and 39 mg L⁻¹ in 96 h, 6× WT |
 | Share of fixed carbon at 3×10⁸ cells mL⁻¹ | squalene 1.6 % (WT) to 9.6 % (best strain), pigments 3.4 %, biomass ~48 %, storage 34–43 %. Enzyme cost is a proteome share, not carbon |
-| Goal 2: best light | orange LED (0.69); blue worst (0.18) |
 
 **Verdict:** the precursor competition and the MCA targets hold. The growth argument
 needs reframing: losing pigment costs growth only when light is not limiting. In dense
