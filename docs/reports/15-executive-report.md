@@ -12,7 +12,6 @@
   `minimal-m0-cap` gives the same answers (cheaper fallback).
 - **Caveats:**
   - `petc_r` and `capacity_K` end at their lower bounds.
-  - 555 nm gives no growth; 465–520 nm are not fitted.
   - GGPP accumulates in dense cultures (77 mM at 10⁹ cells mL⁻¹).
 
 ![fit](figures/exec-fit.png)
@@ -54,5 +53,4 @@ flux, storage overflow) caps squalene, not pigments.
 
 1. Widen the `petc_r` and `capacity_K` bounds, refit.
 2. GGPP outlet for dense cultures.
-3. Diagnose 555 nm.
-4. Test the reframed growth claim on the CrtE knock-down turbidostat data.
+3. Test the reframed growth claim on the CrtE knock-down turbidostat data.

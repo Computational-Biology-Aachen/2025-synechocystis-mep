@@ -20,9 +20,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).parent))
-from shared_fit import COLOUR_EXCLUDED, TIMES, targets  # noqa: E402
+from shared_fit import TIMES, targets
 
-from synmep import colour, evaluate, variants  # noqa: E402
+from synmep import evaluate, variants
 
 R = Path("docs/reports")
 FIG = R / "figures"
@@ -44,7 +44,7 @@ def fit_figure(fit: dict) -> None:
     data = evaluate._growth_data()
     t_data = np.linspace(0, 96, len(data))
     tg = targets()
-    fig, ax = plt.subplots(1, 4, figsize=(15, 3.4), layout="constrained")
+    fig, ax = plt.subplots(1, 3, figsize=(12, 3.4), layout="constrained")
     ax[0].plot(t_data, data.to_numpy(), "k.", ms=3, label="data (Fig 9)")
     ax[0].plot(tr["t_h"], tr["mu_per_h"], "C0", label=NAME)
     ax[0].set(xlabel="time [h]", ylabel="growth rate [h$^{-1}$]", title="a  batch growth")
@@ -60,21 +60,8 @@ def fit_figure(fit: dict) -> None:
     a2.plot(tr["t_h"], tr["pc_per_chl"], "C1--", label="PC:Chl model")
     a2.set_ylabel("PC:Chl [mg mg$^{-1}$]")
     h = [*ax[2].get_legend_handles_labels()[0], *a2.get_legend_handles_labels()[0]]
-    ax[2].legend(handles=h, fontsize=7, loc="lower right")
-    cd = colour.data()
-    model = fit["colour"]
-    x = np.arange(len(cd))
-    used = ~cd.index.isin(COLOUR_EXCLUDED)
-    ax[3].bar(x - 0.2, cd["growth"], 0.4, color="0.6", label="data (Zavřel 2024)")
-    ax[3].bar(x + 0.2, [model[str(w)]["growth"] for w in cd.index], 0.4, color="C0",
-              label=NAME)  # fmt: skip
-    for i in np.flatnonzero(~used):
-        ax[3].axvspan(i - 0.5, i + 0.5, color="C3", alpha=0.1, lw=0)
-    ax[3].set_xticks(x, [str(w) for w in cd.index], fontsize=8)
-    ax[3].set(xlabel="LED peak [nm] (red: not fitted)", ylabel="growth rel. to 633 nm",
-              title="d  growth under LED colours")  # fmt: skip
+    ax[2].legend(handles=h, fontsize=7, loc="upper center")
     ax[0].legend(fontsize=7)
-    ax[3].legend(fontsize=7)
     fig.savefig(FIG / "exec-fit.png", dpi=150)
 
 
